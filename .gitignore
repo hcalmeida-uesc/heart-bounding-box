@@ -12,3 +12,6 @@ wheels/
 /output/cases_analysis_cache
 *.log
 .ruff_cache/
+
+# Dataset symlink/junction
+/dataset
