@@ -3,32 +3,9 @@
 from importlib import import_module
 
 _SYMBOL_TO_MODULE = {
-    # binary_operations
-    "binary_closing": "binary_operations",
-    "binary_dilation": "binary_operations",
-    "binary_erosion": "binary_operations",
-    "binary_opening": "binary_operations",
-    "keep_largest_component": "binary_operations",
-    "label": "binary_operations",
-    # frangi
-    "get_gd": "frangi",
-    "get_gf": "frangi",
-    "get_modified_vesselness": "frangi",
-    "get_vesselness": "frangi",
-    "load_vesselness_cache": "frangi",
-    "save_vesselness_cache": "frangi",
-    # gpu_utils
-    "ensure_cpu": "gpu_utils",
-    "ensure_gpu": "gpu_utils",
-    "get_array_module": "gpu_utils",
-    "to_cpu": "gpu_utils",
-    "to_gpu": "gpu_utils",
-    "use_gpu": "gpu_utils",
     # preprocessing
-    "downscale_image": "preprocessing",
     "downscale_image_ndi": "preprocessing",
     "downscale_image_opencv": "preprocessing",
-    "build_lcc_image_from_mask": "preprocessing",
     "largest_connected_component": "preprocessing",
     "run_core_preprocessing_pipeline": "preprocessing",
     "threshold_image": "preprocessing",

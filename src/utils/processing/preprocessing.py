@@ -5,15 +5,11 @@ componente conectado e o pipeline principal de pré-processamento usado
 pelas etapas de segmentação.
 """
 
-import warnings
-
 import cv2
 import numpy as np
 import scipy.ndimage as ndi
 from typing import Any, Optional, Tuple, Sequence
 from numpy.typing import NDArray
-
-from .gpu_utils import GPU_AVAILABLE, cu_ndi, to_cpu, to_gpu
 
 
 def _find_largest_component_label(labeled_array: NDArray[Any]) -> Optional[int]:
@@ -84,36 +80,6 @@ def downscale_image_opencv(
     raise ValueError(f"Imagem deve ser 2D ou 3D, recebido shape: {image.shape}")
 
 
-def downscale_image(
-    image: NDArray[Any],
-    factors: Sequence[float],
-    order: int = 3,
-    use_opencv: bool = False,
-    opencv_interpolation: Optional[int] = None,
-) -> NDArray[Any]:
-    """Downscale otimizado com suporte opcional a OpenCV e GPU."""
-    if use_opencv:
-        if opencv_interpolation is None:
-            opencv_interpolation = cv2.INTER_LINEAR
-        return downscale_image_opencv(
-            image, factors, interpolation=opencv_interpolation
-        )
-
-    if GPU_AVAILABLE:
-        try:
-            img_gpu = to_gpu(image)
-            zoom_factors = tuple(1.0 / f for f in factors)
-            result_gpu = cu_ndi.zoom(img_gpu, zoom=zoom_factors, order=order)
-            return to_cpu(result_gpu)
-        except Exception as e:
-            warnings.warn(
-                f"GPU downscaling falhou ({type(e).__name__}), usando CPU.", UserWarning
-            )
-            return downscale_image_ndi(image, factors, order=order)
-
-    return downscale_image_ndi(image, factors, order=order)
-
-
 def threshold_image(
     image: NDArray[Any], min_val: int = -300, max_val: int = 675
 ) -> Tuple[NDArray[Any], NDArray[Any]]:
@@ -156,50 +122,6 @@ def largest_connected_component(
     lcc_img = image * largest_comp_mask
 
     return lcc_img, largest_comp_mask
-
-
-def build_lcc_image_from_mask(
-    volume: NDArray[Any],
-    mask: NDArray[Any],
-    offset: float,
-    per_slice: bool = True,
-) -> Tuple[NDArray[Any], NDArray[Any]]:
-    """Aplica uma máscara externa e preserva a maior componente conectada.
-
-    Esta função reproduz a etapa de LCC do pré-processamento clássico para
-    qualquer máscara candidata, incluindo máscaras geradas por threshold fuzzy.
-    O offset mantém intensidades negativas distinguíveis do fundo
-    durante a extração do componente conectado.
-
-    Args:
-        volume: Volume 3D já reduzido para a resolução de trabalho.
-        mask: Máscara binária candidata.
-        offset: Valor somado aos voxels válidos antes do LCC.
-        per_slice: Se True, calcula o LCC em cada fatia axial; caso contrário,
-            calcula um único LCC no volume inteiro.
-
-    Returns:
-        Tupla com a imagem filtrada pelo LCC e a máscara do LCC.
-    """
-    # Recria a imagem limiarizada a partir da máscara candidata.
-    thresholded = np.zeros_like(volume, dtype=np.float32)
-    thresholded[mask] = volume[mask] + offset
-
-    if per_slice:
-        # Mantém o comportamento histórico do pipeline: LCC por fatia axial.
-        lcc_image = np.zeros_like(thresholded, dtype=np.float32)
-        lcc_mask = np.zeros_like(mask, dtype=bool)
-        for z_idx in range(thresholded.shape[2]):
-            lcc_slice, lcc_mask_slice = largest_connected_component(
-                thresholded[:, :, z_idx], mask[:, :, z_idx]
-            )
-            lcc_image[:, :, z_idx] = lcc_slice
-            lcc_mask[:, :, z_idx] = lcc_mask_slice
-    else:
-        # Alternativa global em 3D para comparar uma seleção mais restritiva.
-        lcc_image, lcc_mask = largest_connected_component(thresholded, mask)
-
-    return (lcc_image - offset).astype(np.float32), lcc_mask.astype(bool)
 
 
 def run_core_preprocessing_pipeline(
@@ -247,10 +169,8 @@ def run_core_preprocessing_pipeline(
 
 
 __all__ = [
-    "downscale_image",
     "downscale_image_ndi",
     "downscale_image_opencv",
-    "build_lcc_image_from_mask",
     "largest_connected_component",
     "run_core_preprocessing_pipeline",
     "threshold_image",

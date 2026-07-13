@@ -1,27 +1,9 @@
-"""Grouped exports for image processing, morphology and acceleration utilities - lazy loaded."""
+"""Grouped exports for image pre-processing utilities - lazy loaded."""
 
 from importlib import import_module
 
 _SYMBOL_TO_MODULE = {
-    # binary_operations
-    "binary_closing": "binary_operations",
-    "binary_dilation": "binary_operations",
-    "binary_erosion": "binary_operations",
-    "binary_opening": "binary_operations",
-    "keep_largest_component": "binary_operations",
-    "label": "binary_operations",
-    # frangi
-    "get_modified_vesselness": "frangi",
-    "get_vesselness": "frangi",
-    "load_vesselness_cache": "frangi",
-    "save_vesselness_cache": "frangi",
-    # gpu_utils
-    "get_array_module": "gpu_utils",
-    "to_cpu": "gpu_utils",
-    "to_gpu": "gpu_utils",
-    "use_gpu": "gpu_utils",
     # preprocessing
-    "downscale_image": "preprocessing",
     "downscale_image_ndi": "preprocessing",
     "downscale_image_opencv": "preprocessing",
     "largest_connected_component": "preprocessing",
