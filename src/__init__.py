@@ -1,4 +1,5 @@
-"""Coronary centerline detection package.
+"""Heart bounding box package.
 
-Main package for coronary artery segmentation and analysis.
+Pré-processamento reutilizado do pipeline de segmentação coronária (Silva et
+al., 2026) para extração determinística de bounding box cardíaco (Cap. 2).
 """
