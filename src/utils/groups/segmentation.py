@@ -9,6 +9,8 @@ _SYMBOL_TO_MODULE = {
     "resolve_lower_threshold": "lower_threshold",
     # pipeline_preprocessing
     "load_and_preprocess_image": "pipeline_preprocessing",
+    # bounding_box
+    "compute_geometric_centroid": "bounding_box",
 }
 
 

@@ -101,6 +101,7 @@ def load_and_preprocess_image(
 
     return {
         "lcc_image": lcc_image,
+        "lcc_mask": lcc_mask,
         "label": label,
         "preprocessing_details": preprocessing_details,
         "spacing": spacing,

@@ -40,6 +40,7 @@ _LAZY_EXPORTS = {
     "normalize_lower_threshold_method": ".segmentation.lower_threshold",
     "resolve_lower_threshold": ".segmentation.lower_threshold",
     "load_and_preprocess_image": ".segmentation.pipeline_preprocessing",
+    "compute_geometric_centroid": ".segmentation.bounding_box",
     # Visualization
     "plot_mip_projection": ".visualization.image_slices",
     "plot_preprocessing_grid": ".visualization.preprocessing_views",

@@ -37,7 +37,7 @@ Implementar, a partir do código herdado, a sequência descrita na Seção 2.3.1
 3. Extração do maior componente conectado (LCC) por fatia axial — **implementado**.
 4. Empilhamento dos slices processados em um volume cardíaco 3D binário — **implementado**
    (resultado direto das etapas 1-3, já desacoplado de vesselness/aorta/óstios).
-5. Cálculo do centróide geométrico do volume cardíaco (média das coordenadas dos voxels, por eixo) — **a implementar**.
+5. Cálculo do centróide geométrico do volume cardíaco (média das coordenadas dos voxels, por eixo) — **implementado** ([docs/step5_centroid.md](docs/step5_centroid.md)).
 6. A partir das 1000 imagens do ImageCAS, identificação das dimensões máximas observadas nos três
    eixos — bounding box de **tamanho fixo** (envelope conservador) — **a implementar**.
 7. Posicionamento do bounding box centralizado no centróide de cada imagem individual — **a implementar**.
@@ -60,6 +60,7 @@ função nova e como validar. Documentos já existentes:
 
 - [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md) — estudo do código herdado e plano de implementação das etapas 5-9.
 - [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md) — o que foi removido do pipeline original e por quê.
+- [docs/step5_centroid.md](docs/step5_centroid.md) — centróide geométrico do volume cardíaco (etapa 5).
 
 ## 🏗️ Estrutura do Projeto
 
@@ -69,20 +70,25 @@ heart-bounding-box/
 ├── README.md                       # Este arquivo
 ├── docs/
 │   ├── CODE_NOTES_bounding_box.md  # Mapeamento do código reaproveitável + plano de implementação
-│   └── CODE_REMOVAL_PLAN.md        # Justificativa arquivo a arquivo do que foi removido
+│   ├── CODE_REMOVAL_PLAN.md        # Justificativa arquivo a arquivo do que foi removido
+│   └── step5_centroid.md           # Documentação da etapa 5 (centróide geométrico)
 ├── doc/                             # Documentação herdada do pipeline original (histórico)
 ├── config/
 │   ├── pipeline_config.json        # Config mínima: downscale, threshold HU, LCC
 │   └── imagecas_splits*.json       # Splits fixos train/val/test do ImageCAS
+├── tests/
+│   └── test_bounding_box.py        # Testes da etapa 5 (uv run pytest tests/ -v)
 ├── src/
 │   ├── eda/
-│   │   └── eda_imgs.ipynb          # EDA genérica de intensidades HU (não amarrada ao pipeline arterial)
+│   │   ├── eda_imgs.ipynb                          # EDA genérica de intensidades HU (não amarrada ao pipeline arterial)
+│   │   └── check_preprocessing_and_centroid.ipynb  # Testa etapas 1-5 + Rv preliminar numa imagem aleatória do dataset
 │   └── utils/
 │       ├── processing/
 │       │   └── preprocessing.py            # downscale, threshold, LCC — núcleo do bounding box
 │       ├── segmentation/
 │       │   ├── lower_threshold.py          # limiar inferior HU (fixed/percentile/object_relative_percentile)
-│       │   └── pipeline_preprocessing.py   # load_and_preprocess_image() — orquestra as etapas 1-4
+│       │   ├── pipeline_preprocessing.py   # load_and_preprocess_image() — orquestra as etapas 1-4
+│       │   └── bounding_box.py             # etapas 5+ novas: centróide, envelope, posicionamento, corte, validação
 │       ├── project/
 │       │   ├── cache.py            # cache genérico em disco (JSON/NPY)
 │       │   ├── config.py           # load/save/merge de config JSON
@@ -168,22 +174,30 @@ pip install -e .
 
 ## 💻 Uso
 
-### Pré-processamento (etapas 1-4, disponível hoje)
+### Pré-processamento + centróide (etapas 1-5, disponível hoje)
 
 ```python
 from utils.segmentation.pipeline_preprocessing import load_and_preprocess_image
+from utils.segmentation.bounding_box import compute_geometric_centroid
 
 image_data = load_and_preprocess_image(img_id=1, base_path=BASE_PATH, config=CONFIG)
 lcc_image = image_data["lcc_image"]          # volume cardíaco 3D já reduzido/limiarizado/LCC
+lcc_mask = image_data["lcc_mask"]            # máscara binária correspondente
 label = image_data["label"]                  # label coronário na mesma resolução, para validação futura (etapa 9)
 scaled_spacing = image_data["scaled_spacing"]
+
+centroid = compute_geometric_centroid(lcc_mask)  # array([y_c, x_c, z_c]), na resolução reduzida
 ```
 
-### Extração de bounding box cardíaco (etapas 5-9, planejado)
+Para uma checagem interativa (visual, com uma imagem aleatória real do dataset local), use
+[src/eda/check_preprocessing_and_centroid.ipynb](src/eda/check_preprocessing_and_centroid.ipynb):
+sorteia um `IMG_ID`, roda as etapas 1-5 e plota MIP/fatias/centróide sobre o resultado.
 
-Ainda não há um script/entry point próprio para as etapas 5-9. O plano de implementação proposto —
-cálculo de centróide, envelope máximo sobre as 1000 imagens, posicionamento, corte em resolução
-integral e validação de cobertura/Rv — está descrito em detalhe em
+### Extração de bounding box cardíaco (etapas 6-9, planejado)
+
+Ainda não há um script/entry point próprio para agregar as etapas 6-9. O plano de implementação
+proposto — envelope máximo sobre as 1000 imagens, posicionamento, corte em resolução integral e
+validação de cobertura/Rv — está descrito em detalhe em
 [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md), Seção 8, e será documentado
 etapa a etapa conforme a convenção da seção "Acompanhamento por etapa" acima.
 
@@ -195,10 +209,10 @@ etapa a etapa conforme a convenção da seção "Acompanhamento por etapa" acima
 - [x] Processamento em lote sobre splits do ImageCAS (`get_data_splits`)
 - [x] Limpeza de código: pipeline arterial completo removido, mantido só o necessário para o bounding box ([docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md))
 - [x] Mapeamento documentado do código reaproveitável ([docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md))
+- [x] Etapa 5 — cálculo do centróide geométrico do volume cardíaco binário ([docs/step5_centroid.md](docs/step5_centroid.md))
 
 ### 🚧 Próximos Passos
 
-- [ ] Implementar cálculo do centróide geométrico do volume cardíaco binário (etapa 5)
 - [ ] Rodar o pré-processamento sobre as 1000 imagens do ImageCAS e derivar o envelope de dimensões máximas (etapa 6)
 - [ ] Implementar posicionamento do bounding box fixo centrado no centróide, aplicado à imagem em resolução integral (etapas 7-8)
 - [ ] Implementar validação de cobertura das anotações coronárias dentro do bbox (etapa 9)
@@ -218,8 +232,9 @@ Riscos identificados durante o estudo do código (detalhados em
   ([src/utils/project/notebook_env.py](src/utils/project/notebook_env.py)) ainda têm candidatos de
   path absolutos específicos da máquina do mestrando (com fallback); scripts novos devem continuar
   recebendo `base_path`/`base_save_path` como parâmetro em vez de depender desses defaults.
-- **Sem testes automatizados**: qualquer função nova de pré-processamento/bbox deve vir com
-  verificação mínima de shape/dtype/eixos, já que não há suíte de testes existente.
+- **Testes automatizados ainda mínimos**: `tests/` começou com a etapa 5 (`compute_geometric_centroid`,
+  `uv run pytest tests/ -v`); qualquer função nova de pré-processamento/bbox deve continuar vindo
+  com verificação de shape/dtype/eixos, já que a cobertura ainda é parcial.
 
 ## 📚 Referências
 
