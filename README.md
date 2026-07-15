@@ -37,9 +37,16 @@ Implementar, a partir do código herdado, a sequência descrita na Seção 2.3.1
 3. Extração do maior componente conectado (LCC) por fatia axial — **implementado**.
 4. Empilhamento dos slices processados em um volume cardíaco 3D binário — **implementado**
    (resultado direto das etapas 1-3, já desacoplado de vesselness/aorta/óstios).
+
+   ⚠️ **Achado (2026-07-15, não resolvido):** a máscara resultante das etapas 1-4 não isola o
+   coração — isola o tronco inteiro (pele, parede torácica, mediastino), pois não há fronteira de
+   densidade HU entre o coração e o tecido adjacente. Compromete o cálculo do envelope (etapa 6)
+   se usado sem ajuste. Detalhes, evidência visual/quantitativa e opções em discussão:
+   [docs/step6_envelope.md](docs/step6_envelope.md#achado-bloqueante-lcc-não-isola-o-coração).
 5. Cálculo do centróide geométrico do volume cardíaco (média das coordenadas dos voxels, por eixo) — **implementado** ([docs/step5_centroid.md](docs/step5_centroid.md)).
 6. A partir das 1000 imagens do ImageCAS, identificação das dimensões máximas observadas nos três
-   eixos — bounding box de **tamanho fixo** (envelope conservador) — **a implementar**.
+   eixos — bounding box de **tamanho fixo** (envelope conservador) — **código implementado, execução
+   em lote bloqueada pelo achado acima** ([docs/step6_envelope.md](docs/step6_envelope.md)).
 7. Posicionamento do bounding box centralizado no centróide de cada imagem individual — **a implementar**.
 8. Aplicação do bounding box sobre a imagem **original em resolução integral** (não a versão
    reduzida usada para o cálculo) — **a implementar**.
@@ -61,6 +68,7 @@ função nova e como validar. Documentos já existentes:
 - [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md) — estudo do código herdado e plano de implementação das etapas 5-9.
 - [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md) — o que foi removido do pipeline original e por quê.
 - [docs/step5_centroid.md](docs/step5_centroid.md) — centróide geométrico do volume cardíaco (etapa 5).
+- [docs/step6_envelope.md](docs/step6_envelope.md) — envelope de dimensões máximas (etapa 6): código pronto e testado, execução em lote **bloqueada** por um achado sobre a qualidade do isolamento cardíaco das etapas 1-4 (ver seção "Achado bloqueante" no documento).
 
 ## 🏗️ Estrutura do Projeto
 
@@ -71,14 +79,18 @@ heart-bounding-box/
 ├── docs/
 │   ├── CODE_NOTES_bounding_box.md  # Mapeamento do código reaproveitável + plano de implementação
 │   ├── CODE_REMOVAL_PLAN.md        # Justificativa arquivo a arquivo do que foi removido
-│   └── step5_centroid.md           # Documentação da etapa 5 (centróide geométrico)
+│   ├── step5_centroid.md           # Documentação da etapa 5 (centróide geométrico)
+│   ├── step6_envelope.md           # Documentação da etapa 6 (envelope) + achado bloqueante
+│   └── img/                        # Evidência visual referenciada pelos docs de etapa
 ├── doc/                             # Documentação herdada do pipeline original (histórico)
 ├── config/
 │   ├── pipeline_config.json        # Config mínima: downscale, threshold HU, LCC
 │   └── imagecas_splits*.json       # Splits fixos train/val/test do ImageCAS
 ├── tests/
-│   └── test_bounding_box.py        # Testes da etapa 5 (uv run pytest tests/ -v)
+│   ├── test_bounding_box.py        # Testes das etapas 5-6 (uv run pytest tests/ -v)
+│   └── test_envelope.py            # Testes da orquestração em lote da etapa 6
 ├── src/
+│   ├── run_envelope.py             # Script executável da etapa 6 (uv run python src/run_envelope.py)
 │   ├── eda/
 │   │   ├── eda_imgs.ipynb                          # EDA genérica de intensidades HU (não amarrada ao pipeline arterial)
 │   │   └── check_preprocessing_and_centroid.ipynb  # Testa etapas 1-5 + Rv preliminar numa imagem aleatória do dataset
@@ -88,7 +100,8 @@ heart-bounding-box/
 │       ├── segmentation/
 │       │   ├── lower_threshold.py          # limiar inferior HU (fixed/percentile/object_relative_percentile)
 │       │   ├── pipeline_preprocessing.py   # load_and_preprocess_image() — orquestra as etapas 1-4
-│       │   └── bounding_box.py             # etapas 5+ novas: centróide, envelope, posicionamento, corte, validação
+│       │   ├── bounding_box.py             # etapas 5-6: centróide, extensão do bbox mínimo
+│       │   └── envelope.py                 # etapa 6: orquestração em lote (blocos, retomada, agregação do envelope)
 │       ├── project/
 │       │   ├── cache.py            # cache genérico em disco (JSON/NPY)
 │       │   ├── config.py           # load/save/merge de config JSON
@@ -195,11 +208,12 @@ sorteia um `IMG_ID`, roda as etapas 1-5 e plota MIP/fatias/centróide sobre o re
 
 ### Extração de bounding box cardíaco (etapas 6-9, planejado)
 
-Ainda não há um script/entry point próprio para agregar as etapas 6-9. O plano de implementação
-proposto — envelope máximo sobre as 1000 imagens, posicionamento, corte em resolução integral e
-validação de cobertura/Rv — está descrito em detalhe em
-[docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md), Seção 8, e será documentado
-etapa a etapa conforme a convenção da seção "Acompanhamento por etapa" acima.
+`src/run_envelope.py` roda/retoma o processamento em lote da etapa 6 sobre `dataset/` local
+(descoberta dinâmica de blocos, resumível) — ver [docs/step6_envelope.md](docs/step6_envelope.md).
+**Ainda não foi executado sobre as 1000 imagens** porque a entrada (máscara das etapas 1-4) tem um
+problema conhecido, não resolvido (ver Estado Atual abaixo e a seção "Achado bloqueante" do
+documento da etapa 6). O plano original de todas as etapas 6-9 segue em
+[docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md), Seção 8.
 
 ## 📈 Estado Atual do Projeto
 
@@ -210,10 +224,20 @@ etapa a etapa conforme a convenção da seção "Acompanhamento por etapa" acima
 - [x] Limpeza de código: pipeline arterial completo removido, mantido só o necessário para o bounding box ([docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md))
 - [x] Mapeamento documentado do código reaproveitável ([docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md))
 - [x] Etapa 5 — cálculo do centróide geométrico do volume cardíaco binário ([docs/step5_centroid.md](docs/step5_centroid.md))
+- [x] Etapa 6 (código) — extensão do bbox mínimo por caso, orquestração em lote resumível por bloco de pasta, agregação do envelope ([docs/step6_envelope.md](docs/step6_envelope.md))
+
+### ⚠️ Bloqueado — decisão pendente
+
+- [ ] **Achado (2026-07-15):** a máscara das etapas 1-4 isola o tronco inteiro, não só o coração
+  (100% das fatias tocam a borda da imagem em todos os casos testados) — ver
+  [docs/step6_envelope.md](docs/step6_envelope.md#achado-bloqueante-lcc-não-isola-o-coração).
+  Bloqueia a execução real da etapa 6 (envelope calculado sobre a máscara atual resultaria em bbox
+  quase do tamanho da imagem original, com `Rv` próximo de 0%). Decisão de como ajustar as etapas
+  1-4 (ou confirmar que o design é diferente do documentado) ainda não foi tomada.
 
 ### 🚧 Próximos Passos
 
-- [ ] Rodar o pré-processamento sobre as 1000 imagens do ImageCAS e derivar o envelope de dimensões máximas (etapa 6)
+- [ ] Resolver o achado bloqueante acima antes de rodar `src/run_envelope.py` sobre as 1000 imagens
 - [ ] Implementar posicionamento do bounding box fixo centrado no centróide, aplicado à imagem em resolução integral (etapas 7-8)
 - [ ] Implementar validação de cobertura das anotações coronárias dentro do bbox (etapa 9)
 - [ ] Calcular a redução volumétrica média `Rv` (etapa 9)

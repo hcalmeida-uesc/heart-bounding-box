@@ -11,6 +11,13 @@ _SYMBOL_TO_MODULE = {
     "load_and_preprocess_image": "pipeline_preprocessing",
     # bounding_box
     "compute_geometric_centroid": "bounding_box",
+    "compute_bounding_extent": "bounding_box",
+    # envelope
+    "discover_dataset_blocks": "envelope",
+    "process_case_for_envelope": "envelope",
+    "process_block": "envelope",
+    "run_envelope_batch": "envelope",
+    "compute_envelope": "envelope",
 }
 
 __all__ = list(_SYMBOL_TO_MODULE)

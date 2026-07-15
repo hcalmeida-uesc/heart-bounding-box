@@ -1,0 +1,131 @@
+# Etapa 6 — Envelope de dimensões máximas
+
+> Parte da sequência do Capítulo 2 (Seção 2.3.1), documentada conforme a convenção definida no
+> README ("📝 Acompanhamento por etapa"). Ver também [CODE_NOTES_bounding_box.md](CODE_NOTES_bounding_box.md), Seção 8 (plano original), e [step5_centroid.md](step5_centroid.md).
+
+## Status (2026-07-15): implementação pronta, execução em lote **bloqueada**
+
+O código da etapa 6 está implementado e testado, mas **não foi rodado sobre as 1000 imagens**.
+Durante a validação em um subconjunto real do dataset, foi encontrado um problema na saída das
+etapas 1-4 (LCC, dadas como "concluídas" no README) que compromete o resultado do envelope se
+calculado agora. Ver [Achado bloqueante](#achado-bloqueante-lcc-não-isola-o-coração) abaixo.
+
+## O que foi implementado
+
+- `compute_bounding_extent(mask)` —
+  [src/utils/segmentation/bounding_box.py](../src/utils/segmentation/bounding_box.py). Extensão do
+  bounding box mínimo (`max - min + 1` por eixo) que envolve os voxels não-nulos de uma máscara 3D,
+  irmã de `compute_geometric_centroid` (mesma convenção de eixos `(Y, X, Z)`, mesmos erros
+  explícitos para máscara vazia/não-3D).
+- `src/utils/segmentation/envelope.py` — orquestração da etapa 6:
+  - `discover_dataset_blocks(dataset_root)` — descobre dinamicamente os blocos (subpastas) do
+    dataset local e os `img_id` de cada um, sem hardcodar nomes de pasta (funciona com a convenção
+    `dataset/1-200`, `dataset/201-400`, ... já usada em `check_preprocessing_and_centroid.ipynb`).
+  - `process_case_for_envelope(img_id, base_path, block, config)` — roda etapas 1-5 para um caso,
+    retorna centróide + extensão do bbox mínimo. Erros de um caso individual (arquivo
+    ausente/corrompido, etc.) ficam registrados no record (`status="error"`) em vez de propagar —
+    dataset real de ~1000 casos pode ter exceções pontuais que não devem abortar o lote inteiro.
+  - `process_block(...)` — processa um bloco inteiro, salvando incrementalmente em CSV após cada
+    caso; **retomável**: pula casos já com `status="ok"` em execuções anteriores (`resume=True`,
+    default), sempre re-tenta casos com erro.
+  - `run_envelope_batch(dataset_root, config, output_dir, ...)` — roda todos os blocos descobertos
+    e concatena os resultados.
+  - `compute_envelope(records_df, downscale_factors)` — deriva o envelope final: maior extent
+    observado por eixo (na resolução reduzida), escalado de volta para resolução integral
+    multiplicando por `downscale_factors` eixo a eixo (`(Y, X, Z)`, fator 1 no eixo z).
+- `src/run_envelope.py` — script executável (`uv run python src/run_envelope.py`), roda/retoma o
+  lote sobre `dataset/` e salva `output/bounding_box/envelope/` (diretório **fixo**, não
+  timestamped, para que retomar entre execuções funcione — ver docstring do script).
+- Símbolos novos adicionados aos dispatchers lazy (`utils/segmentation/__init__.py`,
+  `utils/groups/segmentation.py`), seguindo o mesmo padrão da etapa 5.
+
+## Validação
+
+- `tests/test_bounding_box.py` — 7 testes novos para `compute_bounding_extent` (voxel único, cubo
+  simétrico, bloco assimétrico expondo troca de eixos, extensão ignora "buracos" entre voxels
+  extremos, máscara não-booleana, máscara vazia, entrada não-3D).
+- `tests/test_envelope.py` — 12 testes: descoberta de blocos, processamento de caso ponta a ponta
+  com volumes NIfTI sintéticos reais (via `nibabel`, não mockado), registro de erro sem propagar
+  exceção, retomada (pula casos `ok`, re-tenta casos `error`), agregação do envelope (máximo por
+  eixo + escala para resolução integral + `argmax_case_per_axis`).
+- `uv run pytest tests/ -v` — 21/21 passando.
+- Além dos testes automatizados, `process_block`/`compute_envelope` foram exercitados manualmente
+  sobre 5 casos reais do dataset (um por bloco) antes de decidir rodar o lote completo — foi essa
+  checagem manual que revelou o achado bloqueante abaixo.
+
+## Achado bloqueante: LCC não isola o coração
+
+**Resumo:** a máscara `lcc_mask` produzida pelas etapas 1-4 (`load_and_preprocess_image`) não
+isola o coração — ela isola o **tronco inteiro** (pele/subcutâneo, parede torácica, mediastino),
+menos pulmões (ar) e osso muito denso. Isso não é um bug de código: é uma limitação física do
+critério usado (threshold HU + maior componente conectado por fatia).
+
+**Evidência quantitativa** (5 casos, um de cada pasta do dataset — `1-200`, `201-400`, `401-600`,
+`601-800`, `801-1000`, IDs 50/250/500/750/950):
+
+| IMG_ID | Fatias que tocam a borda da imagem | Fração do volume ocupada pela máscara |
+|---|---|---|
+| 50  | 275/275 (100%) | 57.7% |
+| 250 | 275/275 (100%) | 55.6% |
+| 500 | 275/275 (100%) | 62.2% |
+| 750 | 277/277 (100%) | 64.4% |
+| 950 | 275/275 (100%) | 64.7% |
+
+Em **todos** os casos testados, 100% das fatias axiais têm a máscara tocando as 4 bordas da
+imagem, e a máscara ocupa mais da metade do volume total — incompatível com "isolar o coração".
+Isso já se refletia, sem ter sido notado antes, no "Rv preliminar" calculado em
+`check_preprocessing_and_centroid.ipynb` (33,76% de redução para o IMG_ID=264 daquela sessão — ou
+seja, a "máscara cardíaca" ocupava 66% do volume original).
+
+**Evidência visual** (contorno vermelho = `lcc_mask` real, sobreposto na imagem original com janela
+HU correta):
+
+![Contorno da máscara LCC em 4 casos de blocos diferentes](img/step6_lcc_mask_overlay_multi_case.png)
+
+O contorno acompanha a silhueta externa do tronco (pele), não o coração — o coração (blob claro no
+centro) é apenas uma pequena parte da região realmente delimitada.
+
+![Contorno da máscara LCC em 4 fatias do mesmo caso (IMG_ID=1)](img/step6_lcc_mask_overlay_single_case.png)
+
+**Mecanismo provável:** não existe fronteira de densidade (HU) entre o coração e o tecido
+adjacente — gordura subcutânea, músculo da parede torácica, gordura mediastinal e coração ficam
+todos na mesma faixa de threshold (`[-300, ~P99.7]`) e são fisicamente contíguos (sem ar ou osso
+denso os separando). Threshold + LCC por fatia consegue remover ar (pulmões) e osso muito denso,
+mas não consegue, por si só, separar "coração" do "resto do tronco".
+
+É possível que, no pipeline original de mestrado (Silva et al., 2026, base deste fork), o LCC nunca
+tenha sido o mecanismo de isolamento cardíaco em si — apenas uma limpeza grosseira (remove
+ar/osso) antes da localização fina da aorta via Hough Circle Transform + Level Set, etapas que
+foram removidas deste fork por serem consideradas fora do escopo do Cap. 2
+([CODE_REMOVAL_PLAN.md](CODE_REMOVAL_PLAN.md)). Isso **não foi confirmado** contra o texto do
+artigo/Apêndice A — fica como pergunta em aberto para a próxima decisão.
+
+**Por que isso bloqueia a etapa 6:** se o envelope for calculado sobre a máscara atual, o bbox fixo
+resultante ficará próximo do tamanho da imagem original (já que a máscara toca as bordas em quase
+todas as fatias) — a redução volumétrica `Rv` (uma das duas métricas centrais do capítulo) ficaria
+próxima de 0%, o que não serviria ao objetivo da tese.
+
+## Decisão pendente
+
+Hélder está ciente do achado (sessão de 2026-07-15) e vai decidir o próximo passo por conta
+própria — possíveis direções discutidas nesta sessão, nenhuma escolhida ainda:
+
+1. Verificar no artigo/Apêndice A da tese se o LCC realmente pretendia isolar só o coração, ou se
+   sempre foi uma limpeza grosseira complementada por Hough+Level Set.
+2. Ajustar o critério das etapas 1-4 dentro do escopo determinístico atual (ex.: erosão
+   morfológica antes do LCC, threshold mais restrito, outro critério de conectividade) para tentar
+   separar melhor o coração do tronco sem reintroduzir Hough/Level Set.
+3. Outra direção a definir.
+
+## Como retomar
+
+O código está pronto e não precisa de alterações estruturais para rodar — só precisa que a entrada
+(`lcc_mask` das etapas 1-4) realmente isole o coração antes de calcular o envelope sobre ela. Uma
+vez resolvido o achado acima:
+
+```bash
+uv run python src/run_envelope.py
+```
+
+processa (ou retoma) o lote completo sobre `dataset/`, salva um CSV por bloco + `all_cases.csv` +
+`envelope_summary.json` em `output/bounding_box/envelope/`.
