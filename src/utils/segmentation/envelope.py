@@ -14,6 +14,7 @@ from typing import Any
 
 import pandas as pd
 
+from ..project.batch import run_resumable_batch
 from .bounding_box import compute_bounding_extent, compute_geometric_centroid
 from .pipeline_preprocessing import load_and_preprocess_image
 
@@ -123,37 +124,20 @@ def process_block(
 
     Casos já registrados com ``status="ok"`` em uma execução anterior são pulados quando
     ``resume=True`` (default) — permite retomar após interrupção sem reprocessar o bloco inteiro.
-    Casos com erro são sempre re-tentados.
+    Casos com erro são sempre re-tentados. Delega o checkpoint incremental a
+    ``project.batch.run_resumable_batch``, compartilhado com outras etapas do bounding box.
     """
-    output_csv = Path(output_csv)
-
-    records_by_id: dict[int, dict[str, Any]] = {}
-    if resume and output_csv.exists():
-        existing = pd.read_csv(output_csv)
-        records_by_id = {int(row["img_id"]): row.to_dict() for _, row in existing.iterrows()}
-
-    done_ids = {
-        img_id for img_id, record in records_by_id.items() if record.get("status") == "ok"
-    }
-    pending_ids = [img_id for img_id in img_ids if img_id not in done_ids]
-
-    iterator = pending_ids
-    if progress:
-        from tqdm import tqdm
-
-        iterator = tqdm(pending_ids, desc=f"bloco {block}")
-
-    for img_id in iterator:
-        record = process_case_for_envelope(img_id, base_path, block, config)
-        records_by_id[img_id] = record
-
-        df = pd.DataFrame(records_by_id.values()).reindex(columns=ENVELOPE_RECORD_COLUMNS)
-        df = df.sort_values("img_id").reset_index(drop=True)
-        output_csv.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(output_csv, index=False)
-
-    result = pd.DataFrame(records_by_id.values()).reindex(columns=ENVELOPE_RECORD_COLUMNS)
-    return result.sort_values("img_id").reset_index(drop=True)
+    return run_resumable_batch(
+        process_case_for_envelope,
+        ENVELOPE_RECORD_COLUMNS,
+        block,
+        img_ids,
+        base_path,
+        config,
+        output_csv,
+        resume=resume,
+        progress=progress,
+    )
 
 
 def run_envelope_batch(

@@ -18,6 +18,16 @@ _SYMBOL_TO_MODULE = {
     "process_block": "envelope",
     "run_envelope_batch": "envelope",
     "compute_envelope": "envelope",
+    # aorta_localization
+    "detect_aorta_circles": "aorta_localization",
+    # aorta_segmentation
+    "level_set_segmentation": "aorta_segmentation",
+    "remove_leaks_morphology": "aorta_segmentation",
+    # aorta_anchor (etapa 6 v2: âncora pela aorta em vez do centróide do LCC)
+    "segment_aorta": "aorta_anchor",
+    "run_aorta_anchor_batch": "aorta_anchor",
+    "calibrate_bbox_offsets": "aorta_anchor",
+    "validate_coverage": "aorta_anchor",
 }
 
 

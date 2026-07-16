@@ -3,12 +3,15 @@
 > Parte da sequência do Capítulo 2 (Seção 2.3.1), documentada conforme a convenção definida no
 > README ("📝 Acompanhamento por etapa"). Ver também [CODE_NOTES_bounding_box.md](CODE_NOTES_bounding_box.md), Seção 8 (plano original), e [step5_centroid.md](step5_centroid.md).
 
-## Status (2026-07-15): implementação pronta, execução em lote **bloqueada**
+## Status (2026-07-15): **substituída** por [step6v2_aorta_anchor.md](step6v2_aorta_anchor.md)
 
-O código da etapa 6 está implementado e testado, mas **não foi rodado sobre as 1000 imagens**.
-Durante a validação em um subconjunto real do dataset, foi encontrado um problema na saída das
-etapas 1-4 (LCC, dadas como "concluídas" no README) que compromete o resultado do envelope se
-calculado agora. Ver [Achado bloqueante](#achado-bloqueante-lcc-não-isola-o-coração) abaixo.
+O código desta etapa (âncora = centróide do `lcc_mask`) está implementado e testado, mas **não foi
+rodado sobre as 1000 imagens** — ver [Achado bloqueante](#achado-bloqueante-lcc-não-isola-o-coração)
+abaixo. Na mesma sessão, decidiu-se tentar uma âncora diferente (posição da aorta via Hough+Level
+Set) em vez de ajustar o LCC; essa segunda tentativa está documentada em
+[step6v2_aorta_anchor.md](step6v2_aorta_anchor.md) e é o caminho ativo no momento. As funções desta
+página (`compute_bounding_extent`, `envelope.py`) continuam no repositório e passam nos testes, mas
+não são mais o plano corrente para a etapa 6 — mantidas por ora como referência histórica.
 
 ## O que foi implementado
 
