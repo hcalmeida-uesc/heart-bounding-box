@@ -1,0 +1,44 @@
+{
+  "num_cases_calibration": 88,
+  "downscale_factors": [
+    2,
+    2,
+    1
+  ],
+  "offset_min_reduced": {
+    "y": -88.27311140279014,
+    "x": -99.32137682037816,
+    "z": -218.55842118757823
+  },
+  "offset_max_reduced": {
+    "y": 151.9740200402446,
+    "x": 108.03392937708358,
+    "z": 94.0198585408315
+  },
+  "offset_min_full_resolution": {
+    "y": -176.54622280558027,
+    "x": -198.64275364075633,
+    "z": -218.55842118757823
+  },
+  "offset_max_full_resolution": {
+    "y": 303.9480400804892,
+    "x": 216.06785875416716,
+    "z": 94.0198585408315
+  },
+  "bbox_extent_reduced": {
+    "y": 240.24713144303473,
+    "x": 207.35530619746174,
+    "z": 312.5782797284097
+  },
+  "argmin_case_per_axis": {
+    "y": 934,
+    "x": 428,
+    "z": 23
+  },
+  "argmax_case_per_axis": {
+    "y": 428,
+    "x": 90,
+    "z": 44
+  },
+  "splits_source": "config/imagecas_splits_train90.json"
+}

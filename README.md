@@ -277,10 +277,13 @@ de treino e valida cobertura em val/test — ver
 uv run python src/run_aorta_anchor.py
 ```
 
-**Ainda não foi executado sobre as 1000 imagens** — custo estimado ~35s/caso sem GPU (~9-10h para o
-dataset inteiro nesta máquina); ver Estado Atual abaixo. Etapas 7-8 (posicionar/cortar o bbox na
-imagem em resolução integral) ainda não têm código próprio, mas a calibração da etapa 6 v2 já
-produz os offsets necessários. O plano original completo (anterior à âncora pela aorta) segue em
+**Executado sobre as 1000 imagens em 2026-07-15/16** (split `imagecas_splits_train90.json`, 90
+casos de treino) — ver Estado Atual abaixo. **Achado bloqueante**: cobertura em val/test não chega
+a 100% (94,7-96,7%) e o bbox calibrado é enorme (`Rv` médio ~5%, às vezes negativo) — detalhes em
+[docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md#-achado-bloqueante-novo-o-bbox-calibrado-é-enorme--rv-é-ruim-às-vezes-negativo).
+Etapas 7-8 (posicionar/cortar o bbox na imagem em resolução integral) seguem sem código próprio —
+não faz sentido implementá-las sobre uma calibração com esse problema. O plano original completo
+(anterior à âncora pela aorta) segue em
 [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md), Seção 8.
 
 ## 📈 Estado Atual do Projeto
@@ -293,24 +296,24 @@ produz os offsets necessários. O plano original completo (anterior à âncora p
 - [x] Mapeamento documentado do código reaproveitável ([docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md))
 - [x] Etapa 5 — cálculo do centróide geométrico do volume cardíaco binário ([docs/step5_centroid.md](docs/step5_centroid.md))
 - [x] Etapa 6, 1ª tentativa (âncora=LCC) — código pronto e testado, **substituída** após achado de que a máscara do LCC não isola o coração ([docs/step6_envelope.md](docs/step6_envelope.md))
-- [x] Etapa 6, 2ª tentativa (âncora=aorta via Hough+Level Set, offsets calibrados no split de treino) — código pronto, testado (38 testes) e validado manualmente com dado real; **lote completo (1000 imagens) ainda não executado** ([docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md))
+- [x] Etapa 6, 2ª tentativa (âncora=aorta via Hough+Level Set) — código pronto, testado (38 testes), **lote completo das 1000 imagens executado** (2026-07-15/16, split `train90`) — mas revelou um achado bloqueante novo, ver abaixo ([docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md))
 
-### 🔶 Decisões em aberto antes de rodar o lote completo da etapa 6 v2
+### ⚠️ Bloqueado — decisão pendente (etapa 6 v2)
 
-- **Onde/quando rodar**: ~35s/caso sem GPU nesta máquina → ~9-10h para as 1000 imagens. Os módulos
-  já suportam GPU (`config["USE_GPU"] = true`, requer `cupy`/`cucim`) — decidir entre rodar aqui em
-  background ou na máquina com GPU compartilhada do grupo.
-- **Split de calibração pequeno demais?** `config/imagecas_splits.json` (o split fixo default) tem
-  só **30 casos de treino** (270 val, 700 test) — poucos para calibrar offsets "conservadores"
-  (mín/máx entre casos) com confiança de que cobrem o pior caso fora da amostra. Existem
-  `imagecas_splits_train60.json`/`imagecas_splits_train90.json` com mais casos de treino — decidir
-  se a calibração desta etapa deve usar um desses em vez do split default.
+- **Achado (2026-07-16):** com o lote completo rodado (994/1000 casos, calibração em 88 casos de
+  treino), a cobertura em val/test ficou em 94,7-96,7% (não 100%) **e** o bbox calibrado ficou
+  enorme — 480×415×313 voxels em resolução integral (imagens originais são tipicamente
+  512×512×200-300), dando `Rv` médio de só **~5%** (às vezes negativo, quando o bbox excede o
+  próprio tamanho da imagem em z). Causa: `calibrate_bbox_offsets` toma o mínimo/máximo de cada
+  eixo **independentemente** entre os casos de treino — o bbox final precisa satisfazer o extremo
+  de y de um paciente, o de x de outro e o de z de um terceiro, uma combinação que nenhum paciente
+  real atinge sozinho. Ampliar ainda mais o split de treino tende a piorar isso, não corrigir.
+  Detalhes completos, dados e possíveis direções de correção (não decidido) em
+  [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
 
 ### 🚧 Próximos Passos
 
-- [ ] Rodar `src/run_aorta_anchor.py` sobre as 1000 imagens (depois das decisões acima)
-- [ ] Implementar posicionamento/corte do bounding box fixo na imagem em resolução integral, a partir dos offsets calibrados (etapas 7-8)
-- [ ] Implementar a validação de cobertura completa com corte real + cálculo de `Rv` (etapa 9) — `validate_coverage()` já faz uma checagem preliminar por intervalo, sem cortar a imagem
+- [ ] Decidir como endereçar o achado acima antes de implementar as etapas 7-8 (posicionamento/corte do bbox) — não faz sentido implementá-las sobre uma calibração que não atinge cobertura de 100% nem `Rv` relevante
 - [ ] Persistir resultados agregados (por caso e globais) seguindo o padrão de `output/` já usado pelo pipeline herdado
 
 ## 🔍 Observações e Riscos

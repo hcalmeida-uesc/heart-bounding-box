@@ -1,19 +1,21 @@
 """Executa a etapa 6 v2 (âncora pela aorta) sobre o dataset local completo.
 
 Uso:
-    uv run python src/run_aorta_anchor.py            # roda/retoma sobre todo o dataset
+    uv run python src/run_aorta_anchor.py                                     # split default (30 treino)
+    uv run python src/run_aorta_anchor.py --splits config/imagecas_splits_train90.json  # split maior (90 treino)
     uv run python src/run_aorta_anchor.py --fresh     # ignora progresso salvo e reprocessa tudo
 
 Processa cada bloco (subpasta) de ``dataset/``, salvando um CSV por bloco em
 ``output/bounding_box/aorta_anchor/`` (retomável — reexecutar pula os casos já processados com
-sucesso). Em seguida calibra os offsets fixos do bbox usando só o split de treino
-(``config/imagecas_splits.json``) e valida a cobertura da árvore coronária nos splits de
-validação/teste (sem vazamento entre calibração e validação).
+sucesso; o processamento por caso independe do split escolhido, então pode ser reaproveitado por
+qualquer split). Em seguida calibra os offsets fixos do bbox usando só o split de treino do arquivo
+indicado em ``--splits`` e valida a cobertura da árvore coronária nos splits de validação/teste
+(sem vazamento entre calibração e validação). Calibração e cobertura são salvas com o nome do
+arquivo de split no nome do arquivo de saída, para não sobrescrever execuções com splits diferentes.
 
-Aviso de custo: cada caso roda detecção de círculos (Hough) + Level Set da aorta — ~35s/caso nesta
-máquina sem GPU, ou seja, ~9-10h para as 1000 imagens. Os módulos já suportam GPU
-(``"USE_GPU": true`` em ``config/pipeline_config.json``, requer cupy/cucim) — considerar rodar na
-máquina com GPU compartilhada do grupo em vez desta, ou deixar rodando em background aqui.
+Aviso de custo: cada caso roda detecção de círculos (Hough) + Level Set da aorta — ~33-35s/caso em
+CPU, ou seja, ~9-10h para as 1000 imagens (independente do split, já que o processamento por caso
+roda sobre o dataset inteiro; só a calibração/validação depende do split escolhido).
 """
 
 from __future__ import annotations
@@ -38,6 +40,14 @@ def main() -> None:
         "--fresh",
         action="store_true",
         help="Ignora CSVs de progresso já salvos e reprocessa todos os casos.",
+    )
+    parser.add_argument(
+        "--splits",
+        default="config/imagecas_splits.json",
+        help=(
+            "Caminho (relativo à raiz do repo) do arquivo de split train/val/test usado para "
+            "calibração/validação. Default: config/imagecas_splits.json (30 casos de treino)."
+        ),
     )
     args = parser.parse_args()
 
@@ -66,11 +76,16 @@ def main() -> None:
 
     # Lê o split fixo diretamente (em vez de get_data_splits, que espera um único diretório plano
     # com as 1000 imagens — aqui o dataset está em blocos por pasta, ver discover_dataset_blocks).
-    splits_path = REPO_ROOT / "config" / "imagecas_splits.json"
+    splits_path = REPO_ROOT / args.splits
+    splits_stem = splits_path.stem
     splits_data = json.loads(splits_path.read_text(encoding="utf-8"))
     train_ids = [int(img_id) for img_id in splits_data["splits"]["train"]]
     val_ids = [int(img_id) for img_id in splits_data["splits"]["val"]]
     test_ids = [int(img_id) for img_id in splits_data["splits"]["test"]]
+    print(
+        f"Split usado: {splits_path} "
+        f"(treino={len(train_ids)}, val={len(val_ids)}, test={len(test_ids)})"
+    )
 
     all_ids = set(records_df["img_id"])
     missing_from_dataset = (set(train_ids) | set(val_ids) | set(test_ids)) - all_ids
@@ -81,19 +96,22 @@ def main() -> None:
 
     train_records = records_df[records_df["img_id"].isin(train_ids)]
     calibration = calibrate_bbox_offsets(train_records, config["DOWNSCALE_FACTORS"])
-    with (output_dir / "calibration.json").open("w", encoding="utf-8") as file_handle:
+    calibration["splits_source"] = str(args.splits)
+    calibration_path = output_dir / f"calibration_{splits_stem}.json"
+    with calibration_path.open("w", encoding="utf-8") as file_handle:
         json.dump(calibration, file_handle, indent=2, ensure_ascii=False)
-    print("Calibração (split de treino):")
+    print(f"Calibração (split de treino, salva em {calibration_path}):")
     print(json.dumps(calibration, indent=2, ensure_ascii=False))
 
     for split_name, split_ids in (("val", val_ids), ("test", test_ids)):
         split_records = records_df[records_df["img_id"].isin(split_ids)]
         coverage_df = validate_coverage(split_records, calibration)
-        coverage_df.to_csv(output_dir / f"coverage_{split_name}.csv", index=False)
+        coverage_path = output_dir / f"coverage_{split_name}_{splits_stem}.csv"
+        coverage_df.to_csv(coverage_path, index=False)
         coverage_rate = coverage_df["covered"].mean() if len(coverage_df) else float("nan")
         print(
-            f"Cobertura no split '{split_name}': {coverage_df['covered'].sum()}/"
-            f"{len(coverage_df)} casos ({coverage_rate:.2%})"
+            f"Cobertura no split '{split_name}' ({coverage_path.name}): "
+            f"{coverage_df['covered'].sum()}/{len(coverage_df)} casos ({coverage_rate:.2%})"
         )
 
 
