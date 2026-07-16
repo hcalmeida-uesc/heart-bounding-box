@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from utils.segmentation.bounding_box import (
+    compute_bounding_box_bounds,
     compute_bounding_extent,
     compute_geometric_centroid,
 )
@@ -123,3 +124,47 @@ def test_extent_raises_on_non_3d_input():
 
     with pytest.raises(ValueError, match="deve ser 3D"):
         compute_bounding_extent(mask)
+
+
+def test_bounds_of_single_voxel_min_equals_max():
+    mask = np.zeros((10, 10, 10), dtype=bool)
+    mask[3, 4, 5] = True
+
+    min_coords, max_coords = compute_bounding_box_bounds(mask)
+
+    np.testing.assert_array_equal(min_coords, [3, 4, 5])
+    np.testing.assert_array_equal(max_coords, [3, 4, 5])
+
+
+def test_bounds_respects_yxz_axis_order_for_asymmetric_mask():
+    mask = np.zeros((20, 20, 20), dtype=bool)
+    mask[2:4, 5:9, 10:16] = True  # y em [2,3], x em [5,8], z em [10,15]
+
+    min_coords, max_coords = compute_bounding_box_bounds(mask)
+
+    np.testing.assert_array_equal(min_coords, [2, 5, 10])
+    np.testing.assert_array_equal(max_coords, [3, 8, 15])
+
+
+def test_bounds_are_consistent_with_extent():
+    mask = np.zeros((20, 20, 20), dtype=bool)
+    mask[2:4, 5:9, 10:16] = True
+
+    min_coords, max_coords = compute_bounding_box_bounds(mask)
+    extent = compute_bounding_extent(mask)
+
+    np.testing.assert_array_equal(max_coords - min_coords + 1, extent)
+
+
+def test_bounds_raises_on_empty_mask():
+    mask = np.zeros((5, 5, 5), dtype=bool)
+
+    with pytest.raises(ValueError, match="não contém nenhum voxel"):
+        compute_bounding_box_bounds(mask)
+
+
+def test_bounds_raises_on_non_3d_input():
+    mask = np.zeros((5, 5), dtype=bool)
+
+    with pytest.raises(ValueError, match="deve ser 3D"):
+        compute_bounding_box_bounds(mask)

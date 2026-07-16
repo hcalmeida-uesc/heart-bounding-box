@@ -10,6 +10,9 @@ _SYMBOL_TO_MODULE = {
     "run_core_preprocessing_pipeline": "preprocessing",
     "threshold_image": "preprocessing",
     "threshold_image_with_offset": "preprocessing",
+    # binary_operations
+    "binary_opening": "binary_operations",
+    "keep_largest_component": "binary_operations",
 }
 
 

@@ -16,11 +16,17 @@ Localization and Modified Vesselness-Driven Region Growing" (Silva et al., 2026,
 tese) — cujo código era a base original deste repositório.
 
 O pipeline do artigo segmenta as artérias coronárias. **O objetivo deste projeto é mais restrito**:
-apenas isolar o coração e derivar um bounding box 3D fixo, sem segmentar a aorta nem a árvore
-arterial. As etapas iniciais dos dois pipelines (redução dimensional, limiarização HU, extração do
-maior componente conectado) são as mesmas — por isso esse trecho do código original foi mantido e
-reaproveitado, enquanto todo o restante (vesselness, localização/segmentação da aorta, óstios,
-artérias) foi removido do repositório por não ser necessário para este objetivo.
+derivar um bounding box 3D fixo ao redor do coração, sem segmentar a árvore coronária em si. As
+etapas iniciais dos dois pipelines (redução dimensional, limiarização HU, extração do maior
+componente conectado) são as mesmas — por isso esse trecho do código original foi mantido e
+reaproveitado. Vesselness, detecção de óstios, segmentação/crescimento de região das artérias
+coronárias e fuzzy connectedness foram removidos por não serem necessários para este objetivo (ver
+[docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md)).
+
+**Atualização (2026-07-15):** a localização/segmentação da aorta (Hough Circle Transform + Level
+Set), inicialmente também removida, foi **reintroduzida** como base da etapa 6 — não para segmentar
+a aorta em si, mas como âncora determinística e mais confiável que o centróide do LCC (ver
+[docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md) para o racional completo).
 
 Um mapeamento detalhado de onde cada etapa reaproveitável estava/está implementada (arquivo:linha,
 assinatura, convenção de eixos, riscos) está em
@@ -38,25 +44,29 @@ Implementar, a partir do código herdado, a sequência descrita na Seção 2.3.1
 4. Empilhamento dos slices processados em um volume cardíaco 3D binário — **implementado**
    (resultado direto das etapas 1-3, já desacoplado de vesselness/aorta/óstios).
 
-   ⚠️ **Achado (2026-07-15, não resolvido):** a máscara resultante das etapas 1-4 não isola o
-   coração — isola o tronco inteiro (pele, parede torácica, mediastino), pois não há fronteira de
-   densidade HU entre o coração e o tecido adjacente. Compromete o cálculo do envelope (etapa 6)
-   se usado sem ajuste. Detalhes, evidência visual/quantitativa e opções em discussão:
+   ⚠️ **Achado (2026-07-15):** a máscara resultante das etapas 1-4 não isola o coração — isola o
+   tronco inteiro (pele, parede torácica, mediastino), pois não há fronteira de densidade HU entre
+   o coração e o tecido adjacente. Por isso a etapa 6 não usa mais essa máscara como âncora — ver
+   item 6. Detalhes, evidência visual/quantitativa:
    [docs/step6_envelope.md](docs/step6_envelope.md#achado-bloqueante-lcc-não-isola-o-coração).
-5. Cálculo do centróide geométrico do volume cardíaco (média das coordenadas dos voxels, por eixo) — **implementado** ([docs/step5_centroid.md](docs/step5_centroid.md)).
+5. Cálculo do centróide geométrico do volume cardíaco (média das coordenadas dos voxels, por eixo) — **implementado** ([docs/step5_centroid.md](docs/step5_centroid.md)); não é mais a âncora usada na etapa 6 (ver item 6), mas a função permanece testada e em uso pela etapa 6 v2 (agora aplicada à máscara da aorta, não ao LCC).
 6. A partir das 1000 imagens do ImageCAS, identificação das dimensões máximas observadas nos três
-   eixos — bounding box de **tamanho fixo** (envelope conservador) — **código implementado, execução
-   em lote bloqueada pelo achado acima** ([docs/step6_envelope.md](docs/step6_envelope.md)).
-7. Posicionamento do bounding box centralizado no centróide de cada imagem individual — **a implementar**.
+   eixos — bounding box de **tamanho fixo** (envelope conservador) — **código implementado (2ª
+   versão, âncora pela aorta via Hough+Level Set), lote completo ainda não executado** — ver
+   [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
+7. Posicionamento do bounding box centralizado na âncora de cada imagem individual — **a implementar** (offsets calibrados já saem prontos da etapa 6 v2; falta aplicá-los).
 8. Aplicação do bounding box sobre a imagem **original em resolução integral** (não a versão
    reduzida usada para o cálculo) — **a implementar**.
 9. Validação: cobertura de 100% dos voxels de artéria coronária rotulados dentro do bbox (métrica
-   binária por imagem) + cálculo da redução volumétrica média `Rv = 1 − (V_ROI / V_original)` — **a implementar**.
+   binária por imagem) + cálculo da redução volumétrica média `Rv = 1 − (V_ROI / V_original)` —
+   uma versão preliminar já existe em `validate_coverage()` (etapa 6 v2, checagem por intervalo sem
+   cortar a imagem); a validação completa (com corte real e Rv) — **a implementar**.
 
-As etapas 5-9 **não segmentam a aorta nem realizam detecção de óstios/artérias** — todo o restante
-do pipeline original (Hough Circle Transform, Level Set, Frangi/vesselness, Region Growing) foi
-removido deste fork por estar **fora do escopo** deste objetivo (ver
-[docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md)).
+As etapas 5-9 **não segmentam a árvore coronária nem realizam detecção de óstios** — vesselness,
+óstios, region growing e fuzzy connectedness continuam removidos deste fork por estarem fora do
+escopo deste objetivo (ver [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md)). A localização e
+segmentação da aorta (Hough Circle Transform + Level Set) foi reintroduzida como âncora da etapa 6 —
+ver [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
 
 ## 📝 Acompanhamento por etapa
 
@@ -68,7 +78,8 @@ função nova e como validar. Documentos já existentes:
 - [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md) — estudo do código herdado e plano de implementação das etapas 5-9.
 - [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md) — o que foi removido do pipeline original e por quê.
 - [docs/step5_centroid.md](docs/step5_centroid.md) — centróide geométrico do volume cardíaco (etapa 5).
-- [docs/step6_envelope.md](docs/step6_envelope.md) — envelope de dimensões máximas (etapa 6): código pronto e testado, execução em lote **bloqueada** por um achado sobre a qualidade do isolamento cardíaco das etapas 1-4 (ver seção "Achado bloqueante" no documento).
+- [docs/step6_envelope.md](docs/step6_envelope.md) — 1ª tentativa da etapa 6 (âncora = centróide do LCC): **substituída**, mantida como referência histórica do achado que motivou a 2ª tentativa.
+- [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md) — 2ª tentativa da etapa 6 (âncora = centróide da máscara da aorta via Hough+Level Set, offsets calibrados no split de treino): caminho ativo, código pronto e testado, lote completo (1000 imagens) ainda não executado.
 
 ## 🏗️ Estrutura do Projeto
 
@@ -80,34 +91,44 @@ heart-bounding-box/
 │   ├── CODE_NOTES_bounding_box.md  # Mapeamento do código reaproveitável + plano de implementação
 │   ├── CODE_REMOVAL_PLAN.md        # Justificativa arquivo a arquivo do que foi removido
 │   ├── step5_centroid.md           # Documentação da etapa 5 (centróide geométrico)
-│   ├── step6_envelope.md           # Documentação da etapa 6 (envelope) + achado bloqueante
+│   ├── step6_envelope.md           # Etapa 6, 1ª tentativa (âncora=LCC) — substituída, achado bloqueante
+│   ├── step6v2_aorta_anchor.md     # Etapa 6, 2ª tentativa (âncora=aorta) — caminho ativo
 │   └── img/                        # Evidência visual referenciada pelos docs de etapa
 ├── doc/                             # Documentação herdada do pipeline original (histórico)
 ├── config/
-│   ├── pipeline_config.json        # Config mínima: downscale, threshold HU, LCC
+│   ├── pipeline_config.json        # downscale, threshold HU, LCC, detecção de círculos, Level Set
 │   └── imagecas_splits*.json       # Splits fixos train/val/test do ImageCAS
 ├── tests/
 │   ├── test_bounding_box.py        # Testes das etapas 5-6 (uv run pytest tests/ -v)
-│   └── test_envelope.py            # Testes da orquestração em lote da etapa 6
+│   ├── test_envelope.py            # Testes da etapa 6, 1ª tentativa (âncora=LCC)
+│   ├── test_aorta_anchor.py        # Testes da etapa 6, 2ª tentativa (âncora=aorta)
+│   └── test_batch.py               # Testes do runner de lote retomável genérico
 ├── src/
-│   ├── run_envelope.py             # Script executável da etapa 6 (uv run python src/run_envelope.py)
+│   ├── run_envelope.py             # Script da etapa 6, 1ª tentativa (substituída)
+│   ├── run_aorta_anchor.py         # Script da etapa 6, 2ª tentativa (uv run python src/run_aorta_anchor.py)
 │   ├── eda/
 │   │   ├── eda_imgs.ipynb                          # EDA genérica de intensidades HU (não amarrada ao pipeline arterial)
 │   │   └── check_preprocessing_and_centroid.ipynb  # Testa etapas 1-5 + Rv preliminar numa imagem aleatória do dataset
 │   └── utils/
 │       ├── processing/
-│       │   └── preprocessing.py            # downscale, threshold, LCC — núcleo do bounding box
+│       │   ├── preprocessing.py            # downscale, threshold, LCC — núcleo do bounding box
+│       │   ├── binary_operations.py        # keep_largest_component, binary_opening (pós-proc. da aorta)
+│       │   └── gpu_utils.py                # detecção de GPU (cupy/cucim), fallback CPU automático
 │       ├── segmentation/
 │       │   ├── lower_threshold.py          # limiar inferior HU (fixed/percentile/object_relative_percentile)
 │       │   ├── pipeline_preprocessing.py   # load_and_preprocess_image() — orquestra as etapas 1-4
-│       │   ├── bounding_box.py             # etapas 5-6: centróide, extensão do bbox mínimo
-│       │   └── envelope.py                 # etapa 6: orquestração em lote (blocos, retomada, agregação do envelope)
+│       │   ├── bounding_box.py             # etapas 5-6: centróide, extensão/limites do bbox mínimo
+│       │   ├── envelope.py                 # etapa 6, 1ª tentativa (âncora=LCC) — substituída
+│       │   ├── aorta_localization.py       # Hough Circle Transform — localização da aorta (herdado)
+│       │   ├── aorta_segmentation.py       # Level Set (MGAC) — segmentação da aorta (herdado)
+│       │   └── aorta_anchor.py             # etapa 6, 2ª tentativa: âncora pela aorta + calibração
 │       ├── project/
 │       │   ├── cache.py            # cache genérico em disco (JSON/NPY)
 │       │   ├── config.py           # load/save/merge de config JSON
 │       │   ├── dataset.py          # get_data_splits() — splits fixos, útil para rodar sobre as 1000 imagens
 │       │   ├── notebook_env.py     # bootstrap de notebooks (sys.path, paths do dataset)
-│       │   └── results.py          # timing de execuções em lote e diretórios com timestamp
+│       │   ├── results.py          # timing de execuções em lote e diretórios com timestamp
+│       │   └── batch.py            # run_resumable_batch() — checkpoint incremental genérico por caso
 │       ├── utils/
 │       │   ├── json_io.py          # I/O JSON genérico
 │       │   └── nifti_io.py         # I/O NIfTI (nibabel)
@@ -117,16 +138,22 @@ heart-bounding-box/
 │       │   └── volume.py           # render 3D genérico via k3d (marching cubes)
 │       └── groups/                 # namespaces agrupados (io/processing/segmentation/visualization)
 └── output/                          # Resultados e artefatos de execução
+    ├── bounding_box/
+    │   ├── envelope/               # Saída da etapa 6, 1ª tentativa (âncora=LCC)
+    │   └── aorta_anchor/           # Saída da etapa 6, 2ª tentativa (âncora=aorta): CSVs por bloco, calibration.json
     └── segmentation/
-        ├── runs/                   # Execuções completas por resolução/timestamp
-        ├── canonical/              # Referências estáveis para EDA/comparações
+        ├── runs/                   # Execuções completas por resolução/timestamp (pipeline arterial herdado)
+        ├── canonical/              # Referências estáveis para EDA/comparações (pipeline arterial herdado)
         └── analysis/               # Comparações, bad cases e exemplos visuais (execuções antigas)
 ```
 
-> Nota: `src/segmentation_pipeline.py`, o pipeline completo de segmentação arterial (Frangi, Hough,
-> Level Set, óstios, region growing/fuzzy connectedness) e toda a ferragem de comparação/EDA/sweep
-> construída em torno dele foram **removidos** nesta limpeza. Detalhes e justificativa de cada
-> arquivo em [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md).
+> Nota: `src/segmentation_pipeline.py`, o pipeline completo de segmentação arterial (Frangi,
+> detecção de óstios, region growing/fuzzy connectedness) e toda a ferragem de comparação/EDA/sweep
+> construída em torno dele foram **removidos** nesta limpeza — seguem removidos. Detalhes e
+> justificativa de cada arquivo em [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md). A
+> detecção de círculos (Hough) e o Level Set da aorta foram **reintroduzidos** em 2026-07-15 como
+> âncora da etapa 6 (não para segmentar a árvore coronária) — ver
+> [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
 
 ## 🔬 Pré-processamento reaproveitado (base do bounding box)
 
@@ -145,14 +172,34 @@ heart-bounding-box/
 ### 3. Extração do Maior Componente Conectado (LCC)
 
 - Aplicação **slice-by-slice** (2D) para cada fatia axial (`LCC_PER_SLICE=true` por padrão)
-- Remove regiões isoladas, pulmões e vasos pulmonares; mantém apenas a maior estrutura conectada (coração e grandes vasos)
+- Remove regiões isoladas (ar/pulmões, osso muito denso), mas **não isola o coração** — o
+  componente resultante é o tronco inteiro (pele, parede torácica, mediastino), já que não há
+  fronteira de densidade HU entre essas estruturas e o coração. Ver achado em
+  [docs/step6_envelope.md](docs/step6_envelope.md#achado-bloqueante-lcc-não-isola-o-coração). Por
+  isso deixou de ser usado como âncora do bbox (etapa 6 v2 usa a aorta, ver item 5 abaixo) — mas
+  continua sendo a base das etapas 1-4 e da imagem (`lcc_image`) sobre a qual a aorta é detectada.
 - Implementado em `largest_connected_component` ([src/utils/processing/preprocessing.py](src/utils/processing/preprocessing.py))
 
 ### 4. Orquestração
 
 - `load_and_preprocess_image(img_id, base_path, config)` encadeia as três etapas acima e devolve o
-  volume cardíaco 3D (`lcc_image`) já pronto para o cálculo do centróide (etapa 5)
+  volume 3D (`lcc_image`) usado tanto pelo cálculo do centróide (etapa 5) quanto pela
+  detecção/segmentação da aorta (item 5)
   ([src/utils/segmentation/pipeline_preprocessing.py](src/utils/segmentation/pipeline_preprocessing.py))
+
+### 5. Localização e segmentação da aorta (âncora da etapa 6 v2)
+
+- **Localização**: Transformada de Hough para círculos, fatia a fatia, rastreando a aorta
+  ascendente com tolerância de variação de raio/distância em mm — `detect_aorta_circles`
+  ([src/utils/segmentation/aorta_localization.py](src/utils/segmentation/aorta_localization.py)).
+- **Segmentação**: Level Set 3D (Morphological Geodesic Active Contour) inicializado pelos círculos
+  detectados — `level_set_segmentation` + `remove_leaks_morphology`
+  ([src/utils/segmentation/aorta_segmentation.py](src/utils/segmentation/aorta_segmentation.py)).
+- Código herdado do pipeline de segmentação arterial de Silva et al. (2026), reintroduzido em
+  2026-07-15 sem as etapas de vesselness/óstios que o acompanhavam originalmente — não são
+  necessárias para usar a aorta como âncora posicional. Orquestrado por
+  `segment_aorta()` ([src/utils/segmentation/aorta_anchor.py](src/utils/segmentation/aorta_anchor.py)).
+  Ver [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
 
 ## 🚀 Instalação
 
@@ -175,15 +222,21 @@ pip install -e .
 
 - `nibabel`: Leitura de arquivos NIfTI
 - `opencv-python`: Downsampling (`cv2.resize`)
-- `scipy`: `ndimage` (zoom, label)
-- `scikit-image`: usado hoje só por `volume.py` (marching cubes para render 3D via `k3d`)
+- `scipy`: `ndimage` (zoom, label, distance transform)
+- `scikit-image`: `feature.canny`/`transform.hough_circle*` (detecção da aorta),
+  `segmentation.morphological_geodesic_active_contour` (Level Set da aorta),
+  `morphology`/`draw` (pós-processamento), e `volume.py` (marching cubes para render 3D via `k3d`)
 - `k3d`: visualização 3D opcional de máscaras
 - `pandas`: persistência/timing de execuções em lote
 - `scikit-learn`: divisão train/test dos splits do ImageCAS
 
-> GPU (`cupy`/`cucim`) e `morphsnakes` foram removidos do projeto junto com o pipeline arterial —
-> nenhuma etapa do bounding box (downscale/threshold/LCC) tinha ou precisa de aceleração GPU. Ver
-> decisão registrada em [docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md).
+> **Atualização (2026-07-15):** a detecção/segmentação da aorta (Hough Circle Transform + Level
+> Set) foi **reintroduzida** como âncora da etapa 6 v2 — ver
+> [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md). GPU (`cupy`/`cucim`) continua
+> **opcional**: os módulos migrados detectam GPU automaticamente e caem para CPU se
+> `cupy`/`cucim` não estiverem instalados (não estão nesta instalação `uv sync`); `config["USE_GPU"]`
+> default `false`. `morphsnakes` segue removido (não é usado pelo Level Set migrado, que usa
+> `skimage.segmentation.morphological_geodesic_active_contour`, já coberto por `scikit-image`).
 
 ## 💻 Uso
 
@@ -206,41 +259,58 @@ Para uma checagem interativa (visual, com uma imagem aleatória real do dataset 
 [src/eda/check_preprocessing_and_centroid.ipynb](src/eda/check_preprocessing_and_centroid.ipynb):
 sorteia um `IMG_ID`, roda as etapas 1-5 e plota MIP/fatias/centróide sobre o resultado.
 
-### Extração de bounding box cardíaco (etapas 6-9, planejado)
+### Extração de bounding box cardíaco (etapas 6-9)
 
-`src/run_envelope.py` roda/retoma o processamento em lote da etapa 6 sobre `dataset/` local
-(descoberta dinâmica de blocos, resumível) — ver [docs/step6_envelope.md](docs/step6_envelope.md).
-**Ainda não foi executado sobre as 1000 imagens** porque a entrada (máscara das etapas 1-4) tem um
-problema conhecido, não resolvido (ver Estado Atual abaixo e a seção "Achado bloqueante" do
-documento da etapa 6). O plano original de todas as etapas 6-9 segue em
+```python
+from utils.segmentation.aorta_anchor import (
+    process_case_for_aorta_anchor,  # 1 caso: roda etapas 1-4 + aorta, retorna âncora + limites do label
+    calibrate_bbox_offsets,         # agrega vários casos (treino) em offsets fixos por eixo
+    validate_coverage,              # checa cobertura em casos fora da calibração (val/test)
+)
+```
+
+`src/run_aorta_anchor.py` roda/retoma o lote sobre `dataset/` local, calibra os offsets com o split
+de treino e valida cobertura em val/test — ver
+[docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md):
+
+```bash
+uv run python src/run_aorta_anchor.py
+```
+
+**Ainda não foi executado sobre as 1000 imagens** — custo estimado ~35s/caso sem GPU (~9-10h para o
+dataset inteiro nesta máquina); ver Estado Atual abaixo. Etapas 7-8 (posicionar/cortar o bbox na
+imagem em resolução integral) ainda não têm código próprio, mas a calibração da etapa 6 v2 já
+produz os offsets necessários. O plano original completo (anterior à âncora pela aorta) segue em
 [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md), Seção 8.
 
 ## 📈 Estado Atual do Projeto
 
 ### ✅ Concluído
 
-- [x] Pré-processamento reaproveitável e desacoplado de vesselness/aorta/óstios (downsampling, thresholding, LCC por fatia)
+- [x] Pré-processamento reaproveitável e desacoplado de vesselness/óstios/artérias (downsampling, thresholding, LCC por fatia)
 - [x] Processamento em lote sobre splits do ImageCAS (`get_data_splits`)
 - [x] Limpeza de código: pipeline arterial completo removido, mantido só o necessário para o bounding box ([docs/CODE_REMOVAL_PLAN.md](docs/CODE_REMOVAL_PLAN.md))
 - [x] Mapeamento documentado do código reaproveitável ([docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md))
 - [x] Etapa 5 — cálculo do centróide geométrico do volume cardíaco binário ([docs/step5_centroid.md](docs/step5_centroid.md))
-- [x] Etapa 6 (código) — extensão do bbox mínimo por caso, orquestração em lote resumível por bloco de pasta, agregação do envelope ([docs/step6_envelope.md](docs/step6_envelope.md))
+- [x] Etapa 6, 1ª tentativa (âncora=LCC) — código pronto e testado, **substituída** após achado de que a máscara do LCC não isola o coração ([docs/step6_envelope.md](docs/step6_envelope.md))
+- [x] Etapa 6, 2ª tentativa (âncora=aorta via Hough+Level Set, offsets calibrados no split de treino) — código pronto, testado (38 testes) e validado manualmente com dado real; **lote completo (1000 imagens) ainda não executado** ([docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md))
 
-### ⚠️ Bloqueado — decisão pendente
+### 🔶 Decisões em aberto antes de rodar o lote completo da etapa 6 v2
 
-- [ ] **Achado (2026-07-15):** a máscara das etapas 1-4 isola o tronco inteiro, não só o coração
-  (100% das fatias tocam a borda da imagem em todos os casos testados) — ver
-  [docs/step6_envelope.md](docs/step6_envelope.md#achado-bloqueante-lcc-não-isola-o-coração).
-  Bloqueia a execução real da etapa 6 (envelope calculado sobre a máscara atual resultaria em bbox
-  quase do tamanho da imagem original, com `Rv` próximo de 0%). Decisão de como ajustar as etapas
-  1-4 (ou confirmar que o design é diferente do documentado) ainda não foi tomada.
+- **Onde/quando rodar**: ~35s/caso sem GPU nesta máquina → ~9-10h para as 1000 imagens. Os módulos
+  já suportam GPU (`config["USE_GPU"] = true`, requer `cupy`/`cucim`) — decidir entre rodar aqui em
+  background ou na máquina com GPU compartilhada do grupo.
+- **Split de calibração pequeno demais?** `config/imagecas_splits.json` (o split fixo default) tem
+  só **30 casos de treino** (270 val, 700 test) — poucos para calibrar offsets "conservadores"
+  (mín/máx entre casos) com confiança de que cobrem o pior caso fora da amostra. Existem
+  `imagecas_splits_train60.json`/`imagecas_splits_train90.json` com mais casos de treino — decidir
+  se a calibração desta etapa deve usar um desses em vez do split default.
 
 ### 🚧 Próximos Passos
 
-- [ ] Resolver o achado bloqueante acima antes de rodar `src/run_envelope.py` sobre as 1000 imagens
-- [ ] Implementar posicionamento do bounding box fixo centrado no centróide, aplicado à imagem em resolução integral (etapas 7-8)
-- [ ] Implementar validação de cobertura das anotações coronárias dentro do bbox (etapa 9)
-- [ ] Calcular a redução volumétrica média `Rv` (etapa 9)
+- [ ] Rodar `src/run_aorta_anchor.py` sobre as 1000 imagens (depois das decisões acima)
+- [ ] Implementar posicionamento/corte do bounding box fixo na imagem em resolução integral, a partir dos offsets calibrados (etapas 7-8)
+- [ ] Implementar a validação de cobertura completa com corte real + cálculo de `Rv` (etapa 9) — `validate_coverage()` já faz uma checagem preliminar por intervalo, sem cortar a imagem
 - [ ] Persistir resultados agregados (por caso e globais) seguindo o padrão de `output/` já usado pelo pipeline herdado
 
 ## 🔍 Observações e Riscos
