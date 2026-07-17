@@ -94,27 +94,35 @@ centro) é apenas uma pequena parte da região realmente delimitada.
 adjacente — gordura subcutânea, músculo da parede torácica, gordura mediastinal e coração ficam
 todos na mesma faixa de threshold (`[-300, ~P99.7]`) e são fisicamente contíguos (sem ar ou osso
 denso os separando). Threshold + LCC por fatia consegue remover ar (pulmões) e osso muito denso,
-mas não consegue, por si só, separar "coração" do "resto do tronco".
+mas não consegue, por si só, separar "coração" do "resto do tronco" — e nunca teve essa intenção,
+ver confirmação abaixo.
 
-É possível que, no pipeline original de mestrado (Silva et al., 2026, base deste fork), o LCC nunca
-tenha sido o mecanismo de isolamento cardíaco em si — apenas uma limpeza grosseira (remove
-ar/osso) antes da localização fina da aorta via Hough Circle Transform + Level Set, etapas que
-foram removidas deste fork por serem consideradas fora do escopo do Cap. 2
-([CODE_REMOVAL_PLAN.md](CODE_REMOVAL_PLAN.md)). Isso **não foi confirmado** contra o texto do
-artigo/Apêndice A — fica como pergunta em aberto para a próxima decisão.
+**Confirmado (Hélder, 2026-07-17):** no pipeline original de mestrado (Silva et al., 2026, base
+deste fork), o LCC **nunca foi o mecanismo de isolamento cardíaco** — sempre foi apenas uma
+limpeza grosseira (remove ar/pulmões e osso muito denso) antes da localização fina da aorta via
+Hough Circle Transform + Level Set, etapas que foram removidas deste fork em 2026-07 e depois
+parcialmente reintroduzidas como âncora da etapa 6 v2 (ver
+[CODE_REMOVAL_PLAN.md](CODE_REMOVAL_PLAN.md) e [step6v2_aorta_anchor.md](step6v2_aorta_anchor.md)).
+Isso resolve a pergunta que esta seção deixava em aberto (ver histórico em "Decisão pendente"
+abaixo) e reforça que a etapa 6 v2 não é uma alternativa arbitrária — é o mecanismo de localização
+que o pipeline original sempre usou.
 
 **Por que isso bloqueia a etapa 6:** se o envelope for calculado sobre a máscara atual, o bbox fixo
 resultante ficará próximo do tamanho da imagem original (já que a máscara toca as bordas em quase
 todas as fatias) — a redução volumétrica `Rv` (uma das duas métricas centrais do capítulo) ficaria
 próxima de 0%, o que não serviria ao objetivo da tese.
 
-## Decisão pendente
+## Decisão pendente (histórico — já resolvida na prática)
 
-Hélder está ciente do achado (sessão de 2026-07-15) e vai decidir o próximo passo por conta
-própria — possíveis direções discutidas nesta sessão, nenhuma escolhida ainda:
+Hélder estava ciente do achado (sessão de 2026-07-15). A direção efetivamente adotada foi
+reintroduzir a aorta como âncora ([step6v2_aorta_anchor.md](step6v2_aorta_anchor.md)), que por sua
+vez encontrou um achado bloqueante próprio (documentado naquele arquivo). Direções discutidas
+nesta sessão, para registro:
 
 1. Verificar no artigo/Apêndice A da tese se o LCC realmente pretendia isolar só o coração, ou se
-   sempre foi uma limpeza grosseira complementada por Hough+Level Set.
+   sempre foi uma limpeza grosseira complementada por Hough+Level Set. — **Resolvido
+   (2026-07-17): confirmado que sempre foi limpeza grosseira, nunca teve a intenção de isolar o
+   coração** (ver "Mecanismo provável" acima).
 2. Ajustar o critério das etapas 1-4 dentro do escopo determinístico atual (ex.: erosão
    morfológica antes do LCC, threshold mais restrito, outro critério de conectividade) para tentar
    separar melhor o coração do tronco sem reintroduzir Hough/Level Set.

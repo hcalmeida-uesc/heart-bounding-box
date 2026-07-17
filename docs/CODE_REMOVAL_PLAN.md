@@ -14,8 +14,8 @@ artérias coronárias — ou para comparar/depurar essas etapas — é candidato
 |---|---|
 | `src/segmentation_pipeline.py` | Entry point do pipeline completo de segmentação coronária; será substituído por um script novo e menor específico do bounding box. |
 | `src/utils/processing/frangi.py` | Filtro de Frangi/vesselness — usado só para localizar óstios e guiar o region growing arterial. |
-| `src/utils/segmentation/aorta_localization.py` | Hough Circle Transform para rastrear a aorta — não faz parte do bounding box. |
-| `src/utils/segmentation/aorta_segmentation.py` | Level Set 3D (MGAC) para segmentar a aorta — não é necessário para isolar o coração. |
+| `src/utils/segmentation/aorta_localization.py` | Hough Circle Transform para rastrear a aorta — não faz parte do bounding box. ⚠️ **Reintroduzido em 2026-07-15** — ver Seção 13. |
+| `src/utils/segmentation/aorta_segmentation.py` | Level Set 3D (MGAC) para segmentar a aorta — não é necessário para isolar o coração. ⚠️ **Reintroduzido em 2026-07-15** — ver Seção 13. |
 | `src/utils/segmentation/ostia_detection.py` | Detecção/validação de óstios coronários — fora do escopo do Cap. 2. |
 | `src/utils/segmentation/artery_segmentation.py` | Region growing guiado por vesselness para a árvore arterial. |
 | `src/utils/segmentation/pipeline_arteries.py` | Orquestra segmentação arterial (vesselness + RG/FC + pós-processamento + Dice). |
@@ -101,21 +101,22 @@ aorta/óstios/artéria).
 
 | Arquivo | Justificativa |
 |---|---|
-| `src/utils/processing/gpu_utils.py` | Nenhuma função da cadeia mantida (`downscale_image_ndi/opencv`, `threshold_image_with_offset`, `largest_connected_component`, `resolve_lower_threshold`) usa GPU; a aceleração só importava para Frangi/Hough/Level Set/Region Growing, todos removidos. |
-| `src/utils/processing/binary_operations.py` | Closing/dilation/erosion/label com fallback GPU — usados apenas por `ostia_detection.py`, `aorta_segmentation.py` e `pipeline_arteries.py` (todos removidos); nenhuma das 9 etapas do bbox exige morfologia. |
+| `src/utils/processing/gpu_utils.py` | Nenhuma função da cadeia mantida (`downscale_image_ndi/opencv`, `threshold_image_with_offset`, `largest_connected_component`, `resolve_lower_threshold`) usa GPU; a aceleração só importava para Frangi/Hough/Level Set/Region Growing, todos removidos. ⚠️ **Reintroduzido em 2026-07-15** — ver Seção 13. |
+| `src/utils/processing/binary_operations.py` | Closing/dilation/erosion/label com fallback GPU — usados apenas por `ostia_detection.py`, `aorta_segmentation.py` e `pipeline_arteries.py` (todos removidos); nenhuma das 9 etapas do bbox exige morfologia. ⚠️ **Reintroduzido em 2026-07-15** (só `keep_largest_component`/`binary_opening`) — ver Seção 13. |
 
-Consequência: `USE_GPU`, `LOAD_CACHE`/`SAVE_CACHE` de vesselness e toda a plumbing de detecção de
-GPU deixam de fazer sentido no config/CLI do bbox.
+Consequência (válida no momento desta limpeza, 2026-07-12/13; ver Seção 13 para o que mudou depois):
+`USE_GPU`, `LOAD_CACHE`/`SAVE_CACHE` de vesselness e toda a plumbing de detecção de GPU deixam de
+fazer sentido no config/CLI do bbox.
 
 ## 8. Arquivos a simplificar (não remover por inteiro)
 
 | Arquivo | O que cortar | Motivo |
 |---|---|---|
-| `config/pipeline_config.json` | Chaves `VESSELNESS_AORTA`, `VESSELNESS_ARTERY`, `CIRCLE_DETECTION`, `LEVEL_SET`, `OSTIA_DETECTION`, `OSTIA_VALIDATION`, `ARTERY_SEGMENTATION`, `REGION_GROWING`, `FUZZY_CONNECTEDNESS`, `POSTPROCESSING`, `USE_GPU` | Só servem ao pipeline arterial; o bbox precisa apenas de `DOWNSCALE_*`, `MIN_THRESHOLD`, `MAX_THRESHOLD_PERCENTILE`, `LOWER_THRESHOLD`, `LCC_PER_SLICE`. Substituir por um config mínimo dedicado. |
+| `config/pipeline_config.json` | Chaves `VESSELNESS_AORTA`, `VESSELNESS_ARTERY`, `CIRCLE_DETECTION`, `LEVEL_SET`, `OSTIA_DETECTION`, `OSTIA_VALIDATION`, `ARTERY_SEGMENTATION`, `REGION_GROWING`, `FUZZY_CONNECTEDNESS`, `POSTPROCESSING`, `USE_GPU` | Só servem ao pipeline arterial; o bbox precisa apenas de `DOWNSCALE_*`, `MIN_THRESHOLD`, `MAX_THRESHOLD_PERCENTILE`, `LOWER_THRESHOLD`, `LCC_PER_SLICE`. Substituir por um config mínimo dedicado. ⚠️ **`CIRCLE_DETECTION`/`LEVEL_SET`/`USE_GPU` voltaram em 2026-07-15** — ver Seção 13; os demais (vesselness/óstios/RG/FC/postproc.) seguem removidos. |
 | `src/utils/project/config.py` | Função `scale_config_to_resolution()` inteira; simplificar `normalize_runtime_config()` para não referenciar `CIRCLE_DETECTION`/`VESSELNESS_*` | Toda a lógica de escala é sobre parâmetros de Hough/Level Set/RG/FC em pixels. |
 | `src/utils/project/results.py` | `RESULT_COLUMNS`, `READABLE_COLUMN_NAMES`, `build_result_row`, `make_result_dataframe`, `summarize_results_df`, `build_metadata` e afins | Schema inteiro é sobre óstios/Dice/artéria; o bbox precisa de um schema novo e bem menor (centróide, extents, cobertura, Rv). Manter só os helpers genéricos de timing/diretório (`create_timestamped_output_dir`, `duration_breakdown`, `batch_timing_*`). |
 | `src/utils/project/notebook_env.py` | `get_default_split_paths`, `get_bad_cases_export_dir`, `get_cases_analysis_output_dir`, `get_cases_analysis_cache_dir` | Apontam para pastas de output do pipeline arterial/EDA antigo. Manter `configure_notebook_environment`, `resolve_imagecas_base_path`, `resolve_processed_imagecas_path` (genéricos). |
-| `src/utils/groups/processing.py` | Entradas do dicionário que apontam para `frangi`, `gpu_utils`, `binary_operations` | Só devem sobrar os símbolos de `preprocessing.py`. |
+| `src/utils/groups/processing.py` | Entradas do dicionário que apontam para `frangi`, `gpu_utils`, `binary_operations` | Só devem sobrar os símbolos de `preprocessing.py`. ⚠️ **Entradas de `binary_operations` voltaram em 2026-07-15** (`keep_largest_component`, `binary_opening`) — ver Seção 13. |
 | `src/utils/groups/io.py` | Entradas para `project.results` (schema antigo), `dice_score`, `extract_circular_region`/`extract_square_region`, `segment_by_hu` | Mesma razão das Seções 3, 6 e 8 acima. |
 | `src/utils/segmentation/pipeline_preprocessing.py` | Branch `else` (`threshold_mode == "fuzzy"`) de `load_and_preprocess_image()` | Só serve ao threshold fuzzy (`fuzzy_threshold.py`, removido na Seção 1); a tese usa o threshold "normal". Manter só o branch `if threshold_mode == "normal"`. |
 | `src/utils/processing/preprocessing.py` | Função `build_lcc_image_from_mask` | Fica órfã assim que o branch fuzzy acima for removido (era a única chamadora). Ver Seção 9.1 — **não** remover `largest_connected_component`, que é a LCC do isolamento cardíaco e continua em uso. |
@@ -140,7 +141,7 @@ nome/propósito, e é fácil confundi-las:
 |---|---|---|---|
 | `largest_connected_component` (+ `_find_largest_component_label`) | `src/utils/processing/preprocessing.py` | **A LCC do isolamento cardíaco** — usada por `load_and_preprocess_image()` no loop por fatia (etapa 3 da tese). | **Mantida** (Seção 10) — confirmado, não está em nenhuma lista de remoção. |
 | `build_lcc_image_from_mask` | `src/utils/processing/preprocessing.py` | Generaliza a mesma lógica de LCC por fatia, mas só é chamada pelo branch `threshold_mode == "fuzzy"` de `load_and_preprocess_image()` (`fuzzy_threshold.py`, que **é removido** na Seção 1). | Fica **órfã** depois que o branch fuzzy for cortado de `pipeline_preprocessing.py` (ver Seção 8) — não remover o arquivo `preprocessing.py`, só essa função específica, no mesmo commit em que o branch fuzzy for retirado. |
-| `keep_largest_component` | `src/utils/processing/binary_operations.py` | LCC genérica com fallback GPU, mas usada **apenas** para limpar a máscara da **aorta** pós Level-Set (`pipeline_detection.py:118`), nada a ver com isolamento cardíaco. | Corretamente na Seção 7 (remover junto com `binary_operations.py`) — remover não afeta a LCC do coração. |
+| `keep_largest_component` | `src/utils/processing/binary_operations.py` | LCC genérica com fallback GPU, mas usada **apenas** para limpar a máscara da **aorta** pós Level-Set (`pipeline_detection.py:118`), nada a ver com isolamento cardíaco. | Corretamente na Seção 7 (remover junto com `binary_operations.py`) — remover não afeta a LCC do coração. ⚠️ **`binary_operations.py` (e `keep_largest_component`) reintroduzidos em 2026-07-15** para limpar a máscara da aorta usada como âncora da etapa 6 v2 — mesmo papel de antes, ver Seção 13. |
 
 **Conclusão:** a LCC que isola o coração (`largest_connected_component`, chamada por fatia em
 `load_and_preprocess_image`) está segura e listada em "O que permanece" (Seção 10). O único ajuste
@@ -148,6 +149,9 @@ necessário no plano é explicitar, na Seção 8, que `build_lcc_image_from_mask
 junto com o branch fuzzy — não antes.
 
 ## 10. O que permanece (referência rápida)
+
+> Lista congelada no estado imediatamente após esta limpeza (2026-07-12/13). Parte do que foi
+> removido aqui **voltou depois** — ver Seção 13 para o que mudou e por quê.
 
 - `src/utils/processing/preprocessing.py` (downscale, threshold, LCC)
 - `src/utils/segmentation/lower_threshold.py` (limiar inferior adaptativo)
@@ -202,3 +206,47 @@ Executado em 2026-07-12/13, nenhum commit criado (mudanças ficam no working tre
   `src/utils/segmentation/{__init__.py,lower_threshold.py,pipeline_preprocessing.py}`,
   `src/utils/utils/{__init__.py,json_io.py,nifti_io.py}`,
   `src/utils/visualization/{__init__.py,image_slices.py,preprocessing_views.py,volume.py}`.
+
+## 13. Atualização (2026-07-15) — reintrodução parcial: aorta como âncora da etapa 6
+
+Depois desta limpeza, a etapa 6 (envelope de dimensões máximas) tentou usar o centróide do
+`lcc_mask` (etapas 1-4) como âncora do bbox — e descobriu, ao testar em escala, que essa máscara
+não isola o coração, isola o tronco inteiro (achado bloqueante documentado em
+[step6_envelope.md](step6_envelope.md), confirmado em 2026-07-17 como comportamento **original**
+do pipeline de Silva et al. — o LCC sempre foi limpeza grosseira, nunca teve a intenção de isolar
+o coração; ver "Mecanismo provável" naquele arquivo). Isso motivou reintroduzir a
+localização/segmentação da aorta como âncora mais confiável — não para segmentar a árvore
+coronária, objetivo que continua fora de escopo. Detalhes completos em
+[step6v2_aorta_anchor.md](step6v2_aorta_anchor.md).
+
+**O que voltou** (marcado inline com ⚠️ nas seções acima):
+
+| Arquivo/símbolo | Papel na etapa 6 v2 |
+|---|---|
+| `src/utils/segmentation/aorta_localization.py` (`detect_aorta_circles`) | Hough Circle Transform para rastrear a aorta ascendente fatia a fatia. |
+| `src/utils/segmentation/aorta_segmentation.py` (`level_set_segmentation`, `remove_leaks_morphology`) | Level Set 3D (MGAC) para segmentar a máscara da aorta a partir dos círculos. |
+| `src/utils/processing/gpu_utils.py` | Dependência de detecção de GPU dos dois módulos acima; fallback CPU automático, `USE_GPU=false` por padrão. |
+| `src/utils/processing/binary_operations.py` (`keep_largest_component`, `binary_opening`) | Pós-processamento morfológico da máscara da aorta (mesmo papel que tinha antes da remoção). |
+| `config/pipeline_config.json` — blocos `CIRCLE_DETECTION`, `LEVEL_SET`, chave `USE_GPU` | Parâmetros dos dois módulos acima. |
+| `src/utils/groups/processing.py` | Entradas `keep_largest_component`/`binary_opening` reexpostas. |
+
+**O que NÃO voltou** (segue removido, decisão original mantida): `frangi.py` (vesselness),
+`ostia_detection.py`, `artery_segmentation.py`, `pipeline_arteries.py`, `pipeline_detection.py`,
+`pipeline_orchestration.py`, `fuzzy_threshold.py`, `fuzzy_connectedness.py`,
+`backend_comparison.py`, todos os scripts de sweep/experimentos, `dice_score`, e as chaves de
+config `VESSELNESS_*`, `OSTIA_*`, `ARTERY_SEGMENTATION`, `REGION_GROWING`, `FUZZY_CONNECTEDNESS`,
+`POSTPROCESSING`. As dependências `cucim-cu12`/`cupy-cuda12x`/`morphsnakes` também seguem fora do
+`pyproject.toml` — o Level Set migrado usa `skimage.segmentation.morphological_geodesic_active_contour`
+(já coberto por `scikit-image`), não `morphsnakes`.
+
+**Código novo desta etapa** (não existia no momento desta limpeza, então não está nas listas de
+remoção acima): `src/utils/segmentation/aorta_anchor.py`, `src/utils/segmentation/envelope.py`,
+`src/utils/project/batch.py`, `src/run_aorta_anchor.py`, `src/run_envelope.py`,
+`src/eda/plot_aorta_anchor_extremes.py`, `src/eda/check_aorta_anchor.ipynb`,
+`src/eda/aorta_anchor_calibration_summary.ipynb`, `tests/test_envelope.py`,
+`tests/test_aorta_anchor.py`, `tests/test_batch.py`.
+
+**Estado em 2026-07-17**: a etapa 6 v2 rodou sobre as 1000 imagens, mas encontrou um achado
+bloqueante próprio (cobertura 94,7-96,7% em val/test, `Rv` médio ~5%) — decisão de como prosseguir
+ainda pendente, ver [README.md](../README.md#-bloqueado--decisão-pendente-etapa-6-v2) e
+[step6v2_aorta_anchor.md](step6v2_aorta_anchor.md).

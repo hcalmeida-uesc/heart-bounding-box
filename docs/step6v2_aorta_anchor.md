@@ -9,7 +9,11 @@
 A etapa 6 original (`docs/step6_envelope.md`) usava o centróide do `lcc_mask` (etapas 1-4) como
 âncora para o bbox fixo. A sessão de 2026-07-15 mostrou que essa máscara isola o tronco inteiro, não
 o coração — inviabilizando qualquer envelope calculado sobre ela (bbox ficaria perto do tamanho da
-imagem original).
+imagem original). **Confirmado em 2026-07-17** (ver [step6_envelope.md](step6_envelope.md#achado-bloqueante-lcc-não-isola-o-coração)):
+isso não é uma limitação da reimplementação — o LCC nunca teve a intenção de isolar o coração no
+pipeline original de Silva et al. (2026), sempre foi só limpeza grosseira antes da localização da
+aorta. A âncora pela aorta adotada abaixo é, portanto, o mecanismo de localização que o pipeline
+original sempre usou, não uma alternativa arbitrária.
 
 Antes de adotar o LCC, Hélder já havia cogitado usar a posição da aorta (com uma margem em mm) como
 base para a ROI cardíaca, e abandonou esse caminho em favor do LCC. Ao revisar o código original do
