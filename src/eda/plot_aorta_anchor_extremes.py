@@ -9,9 +9,14 @@ Lê os resultados já salvos em ``output/bounding_box/aorta_anchor/`` (produzido
 
 1. ``step6v2_offset_histograms.png`` — distribuição dos offsets (label − âncora) por eixo entre
    todos os casos processados, com o limite calibrado (definido só pelos casos de treino) marcado,
-   e o caso específico que definiu cada extremo.
+   o caso específico que definiu cada extremo, e traços de percentil (80-100%, a cada 5 pontos)
+   mostrando visualmente quantos casos ficariam de fora em cada nível de cobertura marginal.
 2. ``step6v2_worst_coverage_cases.png`` — os piores casos de cobertura em val/test (fora da
    calibração), por quanto excedem o bbox calibrado e em qual eixo.
+
+Também imprime (e expõe via ``compute_coverage_percentiles``) uma tabela com o valor de offset e o
+número/fração de casos excluídos em cada nível de cobertura (80-100%) por eixo e lado — mesma
+informação dos traços de percentil do histograma, em formato numérico.
 
 Ver ``docs/step6v2_aorta_anchor.md``, seção "Achado bloqueante novo", para o contexto.
 """
@@ -24,6 +29,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.lines import Line2D
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = REPO_ROOT / "output" / "bounding_box" / "aorta_anchor"
@@ -36,6 +42,80 @@ COLOR_BULK = "#4C72B0"
 COLOR_CALIB = "#222222"
 COLOR_EXTREME = "#DD8452"
 AXIS_COLORS = {"y": "#4C72B0", "x": "#DD8452", "z": "#55A868"}
+
+# Níveis de cobertura marginal (por eixo, por lado) usados nos marcadores de percentil do
+# histograma e no resumo tabular — ver `compute_coverage_percentiles`.
+COVERAGE_LEVELS = (80, 85, 90, 95, 100)
+_COVERAGE_CMAP = plt.get_cmap("Purples")
+
+
+def _coverage_color(level: int) -> tuple:
+    """Mapeia um nível de cobertura (80-100) para uma cor sequencial (mais escura = mais perto de 100%)."""
+    span = max(COVERAGE_LEVELS) - min(COVERAGE_LEVELS)
+    frac = (level - min(COVERAGE_LEVELS)) / span if span else 1.0
+    return _COVERAGE_CMAP(0.35 + 0.55 * frac)
+
+
+def compute_coverage_percentiles(
+    ok: pd.DataFrame, levels: tuple[int, ...] = COVERAGE_LEVELS
+) -> pd.DataFrame:
+    """Para cada eixo/lado, calcula quantos casos ficariam de fora do bbox em cada nível de
+    cobertura marginal (80-100%, a cada 5 pontos por padrão).
+
+    "Cobertura" aqui é marginal e por lado: no lado mínimo (`label_min − âncora`), cobrir P% dos
+    casos processados (`ok`) significa usar como offset o percentil `100 − P` dessa distribuição
+    (os P% menos extremos ficam dentro, os `100 − P`% mais negativos ficam de fora). No lado
+    máximo, cobrir P% usa o percentil `P` (os P% menos extremos ficam dentro, os `100 − P`% mais
+    altos ficam de fora). Em P=100 o percentil coincide com o mínimo/máximo observado, ou seja,
+    0 casos excluídos — como esperado.
+
+    Isso é uma leitura marginal (eixo a eixo, lado a lado) da mesma população de 994 casos que já
+    aparece no histograma — não é a cobertura conjunta (os 3 eixos simultaneamente) usada em
+    `validate_coverage`/`coverage_{val,test}_*.csv`, que é sempre menor ou igual a qualquer uma
+    destas frações marginais.
+
+    Args:
+        ok: registros com status "ok" e colunas `offset_min_{y,x,z}`/`offset_max_{y,x,z}` já
+            calculadas (ver `main`/`plot_offset_histograms`).
+        levels: níveis de cobertura (%) a reportar.
+
+    Returns:
+        DataFrame com uma linha por (eixo, lado, nível de cobertura): o valor de offset no
+        percentil correspondente, quantos casos ficam excluídos e a fração excluída.
+    """
+    n = len(ok)
+    rows = []
+    for axis_name in ("y", "x", "z"):
+        lo = ok[f"offset_min_{axis_name}"]
+        hi = ok[f"offset_max_{axis_name}"]
+        for level in levels:
+            threshold_min = np.percentile(lo, 100 - level)
+            excluded_min = int((lo < threshold_min).sum())
+            rows.append(
+                {
+                    "eixo": axis_name,
+                    "lado": "mín (label_min - âncora)",
+                    "cobertura_%": level,
+                    "offset_threshold": threshold_min,
+                    "casos_excluidos": excluded_min,
+                    "pct_excluidos": excluded_min / n,
+                }
+            )
+
+            threshold_max = np.percentile(hi, level)
+            excluded_max = int((hi > threshold_max).sum())
+            rows.append(
+                {
+                    "eixo": axis_name,
+                    "lado": "máx (label_max - âncora)",
+                    "cobertura_%": level,
+                    "offset_threshold": threshold_max,
+                    "casos_excluidos": excluded_max,
+                    "pct_excluidos": excluded_max / n,
+                }
+            )
+
+    return pd.DataFrame(rows)
 
 
 def plot_offset_histograms(ok: pd.DataFrame, calibration: dict) -> None:
@@ -69,19 +149,44 @@ def plot_offset_histograms(ok: pd.DataFrame, calibration: dict) -> None:
                 arrowprops=dict(arrowstyle="-", color=COLOR_EXTREME, lw=1),
             )
 
+        # Marcadores de percentil (80-100%, a cada 5 pontos): traços curtos mostrando onde cada
+        # nível de cobertura marginal cairia nesta mesma distribuição de 994 casos — para comparar
+        # visualmente com o limite calibrado (que usa só os 88 casos de treino).
+        for level in COVERAGE_LEVELS:
+            color = _coverage_color(level)
+            threshold_min = np.percentile(lo, 100 - level)
+            threshold_max = np.percentile(hi, level)
+            ax.axvline(threshold_min, color=color, linestyle=":", linewidth=1.2, ymax=0.35)
+            ax.axvline(threshold_max, color=color, linestyle=":", linewidth=1.2, ymax=0.35)
+
         ax.set_title(f"eixo {axis_name}")
         ax.set_xlabel("offset (voxels, resolução reduzida)")
         if axis_name == "y":
             ax.set_ylabel(f"nº de casos ({len(ok)} processados)")
         ax.spines[["top", "right"]].set_visible(False)
 
-    axes[0].legend(loc="upper left", fontsize=8, framealpha=0.9)
+    existing_handles, existing_labels = axes[0].get_legend_handles_labels()
+    coverage_handles = [
+        Line2D([0], [0], color=_coverage_color(level), linestyle=":", linewidth=1.8)
+        for level in COVERAGE_LEVELS
+    ]
+    coverage_labels = [f"{level}% cobertura marginal (percentil)" for level in COVERAGE_LEVELS]
+    fig.legend(
+        existing_handles + coverage_handles,
+        existing_labels + coverage_labels,
+        loc="lower center",
+        bbox_to_anchor=(0.5, 0.0),
+        ncol=4,
+        fontsize=7,
+        framealpha=0.9,
+    )
     fig.suptitle(
         f"Distribuição dos offsets (label − âncora) por eixo — {len(ok)} casos\n"
-        "linha tracejada = limite calibrado (só casos de treino); laranja = caso que definiu o limite",
-        fontsize=11,
+        "linha tracejada preta = limite calibrado (só casos de treino); laranja = caso que definiu o limite;\n"
+        "traços curtos coloridos = percentis 80-100% da distribuição completa (marcador de quantos casos ficariam de fora)",
+        fontsize=10,
     )
-    plt.tight_layout(rect=[0, 0, 1, 0.88])
+    plt.tight_layout(rect=[0, 0.14, 1, 0.88])
     out_path = DOCS_IMG_DIR / "step6v2_offset_histograms.png"
     fig.savefig(out_path, dpi=130)
     plt.show()
@@ -155,6 +260,16 @@ def main() -> None:
     train_ids = {int(img_id) for img_id in splits["train"]}
 
     plot_offset_histograms(ok, calibration)
+
+    percentile_summary = compute_coverage_percentiles(ok)
+    print()
+    print(f"Cobertura marginal por percentil (eixo/lado, {len(ok)} casos processados):")
+    print(
+        percentile_summary.assign(
+            offset_threshold=percentile_summary["offset_threshold"].round(1),
+            pct_excluidos=(percentile_summary["pct_excluidos"] * 100).round(1),
+        ).to_string(index=False)
+    )
 
     val = pd.read_csv(OUTPUT_DIR / f"coverage_val_{SPLITS_STEM}.csv")
     test = pd.read_csv(OUTPUT_DIR / f"coverage_test_{SPLITS_STEM}.csv")

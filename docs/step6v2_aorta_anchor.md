@@ -216,6 +216,16 @@ extremo de só 88 casos, fica na cauda distante dessa distribuição mais ampla 
 do grosso dela. É esperado que casos de fora da amostra de treino ultrapassem esse limite — a cauda
 completa (994 casos) claramente vai além do que 88 casos capturaram, principalmente no eixo z.
 
+**Atualizado em 2026-07-17:** o histograma agora também marca, por eixo/lado, os percentis
+80/85/90/95/100% da distribuição completa (994 casos) — traços curtos, mais escuros quanto mais
+perto de 100%, mostrando visualmente quantos casos ficariam de fora em cada nível de cobertura
+marginal (`compute_coverage_percentiles()` em
+[plot_aorta_anchor_extremes.py](../src/eda/plot_aorta_anchor_extremes.py), tabela apresentada em
+[aorta_anchor_calibration_summary.ipynb](../src/eda/aorta_anchor_calibration_summary.ipynb),
+Seção 2.1). Isso quantifica exatamente o que o parágrafo acima descreve: em **todos os 6
+eixo/lado**, o limite calibrado com 88 casos já fica aquém do extremo real dos 994 processados —
+gap de 10,7 a 24,5 voxels em y, 36,4 a 66,8 em x, 33,4 a 54,0 em z (resolução reduzida).
+
 ![20 piores casos de cobertura fora da calibração, por eixo responsável](img/step6v2_worst_coverage_cases.png)
 
 O eixo **z é o maior responsável pelas piores falhas de cobertura** (9 dos 20 piores casos), à
