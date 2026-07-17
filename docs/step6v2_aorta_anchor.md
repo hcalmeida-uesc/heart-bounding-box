@@ -240,10 +240,59 @@ carrega `all_cases.csv` + `calibration_imagecas_splits_train90.json` +
 que o define (via `argmin_case_per_axis`/`argmax_case_per_axis`), e um gráfico de barras dos piores
 casos de cobertura por excesso além do bbox. Reaproveitável se a calibração for refeita.
 
+**Atualizado em 2026-07-17** — o histograma agora também marca, por eixo/lado, os percentis
+80/85/90/95/100% da distribuição completa (994 casos): traços curtos, mais escuros quanto mais
+perto de 100%, mostrando visualmente quantos casos ficariam de fora em cada nível de cobertura
+marginal (`compute_coverage_percentiles()`, mesmo módulo). Em **todos os 6 combinações de
+eixo/lado**, o limite calibrado com 88 casos já fica aquém do extremo real dos 994 processados —
+gap de 10,7 a 24,5 voxels em y, 36,4 a 66,8 em x, 33,4 a 54,0 em z (resolução reduzida). Tabela
+completa e comparação numérica em
+[aorta_anchor_calibration_summary.ipynb](../src/eda/aorta_anchor_calibration_summary.ipynb),
+Seção 2.1.
+
+### Explorado: recalibração por percentil em vez de min/max — não abre um meio-termo viável
+
+Testado em 2026-07-17, sem re-rodar o lote (reaproveita `all_cases.csv` + `coverage_*.csv` já
+salvos): em vez de calibrar cada eixo pelo mínimo/máximo absoluto dos 88 casos de treino (nível de
+cobertura 100%, o método atual), recalibrar por um percentil menos conservador — aceitando que uma
+fração pequena dos próprios casos de treino fique fora do bbox — e medir o efeito na cobertura
+**conjunta** (3 eixos simultâneos, não marginal) dos 906 casos de val+test e no `Rv` real (mesma
+amostra de 60 casos da Seção 4).
+
+| Cobertura no treino | Extensão do bbox (resolução integral, y×x×z) | Cobertura conjunta held-out (val+test) | `Rv` médio |
+|---|---|---|---|
+| 100% (método atual) | 480,5 × 414,7 × 312,6 | 95,14% | 5,01% |
+| 95% | 407,2 × 357,0 × 253,1 | 75,94% | 43,91% |
+| 90% | 386,0 × 334,3 × 236,3 | 59,60% | 53,50% |
+| 85% | 373,7 × 318,3 × 226,0 | 45,70% | 59,00% |
+| 80% | 361,1 × 307,5 × 217,3 | 33,44% | 63,20% |
+
+**Não existe meio-termo razoável nessa faixa**: já relaxar de 100% para 95% de cobertura no treino
+(uma redução pequena, em tese) faz a cobertura conjunta held-out despencar de 95,14% para 75,94% —
+uma queda muito mais que proporcional — enquanto o `Rv` melhora de 5,01% para 43,91%. Não há um
+ponto onde cobertura fique perto de 100% **e** `Rv` seja relevante ao mesmo tempo: ou a cobertura é
+aceitável e o `Rv` é ruim (o achado já documentado acima), ou o `Rv` melhora e a cobertura
+desmorona bem abaixo do que o capítulo exige.
+
+Reproduzível via
+[aorta_anchor_calibration_summary.ipynb](../src/eda/aorta_anchor_calibration_summary.ipynb),
+Seção 4.1 (`calibrate_at_level`/`joint_coverage_rate`/`rv_for_extent` — generalizam
+`calibrate_bbox_offsets`/`validate_coverage` para qualquer percentil, sem reprocessar o dataset).
+
+**O que isso descarta e o que não descarta**: descarta a versão simples de "relaxar a agregação por
+eixo com um corte de percentil marginal" — a sub-ideia mais direta do item 1 abaixo — como solução
+suficiente sozinha; a queda de cobertura held-out é desproporcional demais a qualquer ganho de `Rv`
+que valha a pena. **Não descarta** abordagens que respeitem a correlação entre eixos por paciente
+(ex.: um envelope conjunto/percentil multivariado, considerando os 3 eixos ao mesmo tempo por
+caso, não marginal eixo a eixo) — essa variante mais sofisticada do item 1, e as demais direções
+listadas abaixo, continuam em aberto.
+
 **Possíveis direções (não decidido, para discutir):**
 1. Repensar a agregação da calibração — em vez de min/max independente por eixo, considerar algo
    que respeite a correlação entre eixos por paciente (ex.: um envelope por percentil conjunto, ou
-   aceitar formalmente uma cobertura estatística em vez de min/max absoluto).
+   aceitar formalmente uma cobertura estatística em vez de min/max absoluto). A versão marginal
+   simples desse último já foi testada acima ("Explorado: recalibração por percentil") e não
+   resolve sozinha — falta tentar uma versão que considere os 3 eixos conjuntamente por caso.
 2. Revisar se a âncora (centróide da aorta) é o ponto de referência certo — a Opção B cogitada em
    2026-07-15 (ponto médio dos óstios, mais próximo anatomicamente do início da árvore coronária)
    poderia reduzir a dispersão dos offsets por eixo.
