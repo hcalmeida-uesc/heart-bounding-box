@@ -367,6 +367,47 @@ implementar qualquer envelope individual** — não presumir o critério.
 - `output_run_aorta_anchor.log` (raiz do repo) — log completo da execução, incluindo a interrupção
   e retomada.
 
+## Detalhe técnico confirmado (2026-07-21): qual lado da máscara da aorta é a raiz
+
+Pergunta prática para qualquer posicionamento futuro que precise diferenciar "lado da raiz" (onde
+ficam os óstios coronários) de "lado do arco" na máscara da aorta — depende da convenção de
+orientação do NIfTI deste dataset, não é assumível sem checar.
+
+**Orientação do NIfTI**: `nibabel.aff2axcodes()` em 5 casos de blocos diferentes do dataset
+(`1-200` a `801-1000`) deu consistentemente `('L', 'A', 'S')` — o eixo z (3º eixo do array, o
+mesmo `z` da convenção `(Y, X, Z)` usada em todo o projeto) cresce em direção **Superior
+(craniana)**. `z_max` = mais próximo da cabeça; `z_min` = mais próximo dos pés.
+
+**Lado da raiz**: verificado empiricamente (não só por dedução anatômica) — segmentando a aorta de
+verdade (`segment_aorta`) em 3 casos reais de blocos diferentes e medindo a distância 3D mínima
+(mm, com espaçamento físico) entre cada extremo da máscara da aorta (`z_min`, `z_max`) e o label
+coronário real do mesmo caso:
+
+| IMG_ID | aorta z=[min,max] (resolução reduzida) | dist. z_min → label | dist. z_max → label |
+|---|---|---|---|
+| 1   | [94, 274]  | **21,2 mm** | 53,2 mm |
+| 250 | [138, 274] | **15,7 mm** | 39,6 mm |
+| 500 | [157, 274] | **11,8 mm** | 18,2 mm |
+
+Em todos os 3 casos, `z_min` da máscara da aorta fica 2-3× mais perto do label coronário do que
+`z_max`. **Conclusão: `z_min` é o lado da raiz; `z_max` é o lado do arco** (mais distante do
+coração).
+
+**Por que faz sentido**: `z_max` bate exatamente em `num_slices − 1` nos 3 casos — não é
+coincidência, é onde `detect_aorta_circles` **começa** a busca (última fatia do volume) e rastreia
+para trás (z decrescente) até a geometria deixar de ser circular o bastante para o Hough, o que
+acontece perto do anel/seios de Valsalva, na raiz — por isso o rastreamento tende a **parar**
+perto da raiz (`z_min` observado), não a começar lá.
+
+**Ressalva**: `('L','A','S')` é a orientação confirmada para este dataset/pipeline de carregamento
+(`load_raw_img_and_label` via `nibabel`, sem reorientação), não uma garantia universal de todo
+arquivo NIfTI — reconfirmar se outro dataset for usado no futuro.
+
+Reproduzível chamando `segment_aorta(lcc_image, scaled_spacing, config)` (de
+`aorta_anchor.py`) com a saída de `load_and_preprocess_image` para qualquer `img_id`, depois
+`compute_bounding_box_bounds` na máscara resultante e no label (`label == 1`) para obter os
+extremos em z e medir a distância até o label como acima.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

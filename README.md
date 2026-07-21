@@ -200,6 +200,9 @@ heart-bounding-box/
   necessárias para usar a aorta como âncora posicional. Orquestrado por
   `segment_aorta()` ([src/utils/segmentation/aorta_anchor.py](src/utils/segmentation/aorta_anchor.py)).
   Ver [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
+- **`z_min` da máscara da aorta é o lado da raiz (óstios); `z_max` é o lado do arco** — confirmado
+  em 2026-07-21 (orientação NIfTI `('L','A','S')` + distância real ao label coronário em 3 casos),
+  ver [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md#detalhe-técnico-confirmado-2026-07-21-qual-lado-da-máscara-da-aorta-é-a-raiz).
 
 ## 🚀 Instalação
 
