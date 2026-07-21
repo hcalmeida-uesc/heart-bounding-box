@@ -301,6 +301,84 @@ def calibrate_bbox_offsets(
     }
 
 
+def calibrate_bbox_size_joint(
+    records_df: pd.DataFrame,
+    downscale_factors: tuple[float, float, float],
+    percentile: float = 100.0,
+) -> dict[str, Any]:
+    """Calibra o bbox usando o extent 3D de UM caso de treino real, não uma combinação de
+    extremos de casos diferentes por eixo (ver o achado documentado em
+    ``docs/step6v2_aorta_anchor.md`` sobre ``calibrate_bbox_offsets``: agregar min/max
+    independentemente por eixo combina o extremo de y de um paciente com o de x de outro e o
+    de z de um terceiro — uma combinação que nenhum paciente real atinge, mas que infla o bbox
+    muito além do necessário).
+
+    Para cada caso, calcula seu próprio extent (``offset_max - offset_min`` por eixo) — um
+    triplete ``(y, x, z)`` coerente, vindo do mesmo paciente. Ordena os casos pelo volume desse
+    extent (voxels³, resolução reduzida) e usa o ``offset_min``/``offset_max`` do caso no
+    ``percentile`` dessa ordenação como o bbox calibrado inteiro. O resultado corresponde
+    sempre à anatomia de um paciente real observado no treino, nunca a uma combinação
+    sintética.
+
+    ``percentile=100`` (default) usa o caso de maior volume — o mais conservador possível
+    dentro deste método, mas tipicamente ainda bem menor que ``calibrate_bbox_offsets``, já que
+    não combina extremos de pacientes diferentes. Percentis menores usam um paciente de volume
+    menor, aceitando que uma fração dos casos de treino fique parcialmente fora do bbox.
+
+    O dict retornado usa as mesmas chaves de :func:`calibrate_bbox_offsets`
+    (``offset_min_reduced``, ``offset_max_reduced``, ``bbox_extent_reduced``, ...) — compatível
+    sem alteração com :func:`validate_coverage`.
+    """
+    ok = records_df[records_df["status"] == "ok"].copy()
+    if ok.empty:
+        raise ValueError(
+            "Nenhum caso com status='ok' em records_df; não é possível calibrar o bbox."
+        )
+    if not 0 < percentile <= 100:
+        raise ValueError(f"percentile deve estar em (0, 100], recebido {percentile}")
+
+    for axis in ("y", "x", "z"):
+        anchor_col = ok[f"anchor_{axis}"]
+        ok[f"_offset_min_{axis}"] = ok[f"label_{axis}_min"] - anchor_col
+        ok[f"_offset_max_{axis}"] = ok[f"label_{axis}_max"] - anchor_col
+        ok[f"_extent_{axis}"] = ok[f"_offset_max_{axis}"] - ok[f"_offset_min_{axis}"]
+
+    ok["_volume"] = ok["_extent_y"] * ok["_extent_x"] * ok["_extent_z"]
+    sorted_ok = ok.sort_values("_volume").reset_index(drop=True)
+
+    # Seleção por rank (não por interpolação de np.percentile): garante que o resultado seja
+    # sempre o triplete de um caso real, nunca um valor sintético entre dois casos.
+    rank = int(np.ceil(percentile / 100.0 * len(sorted_ok))) - 1
+    rank = min(max(rank, 0), len(sorted_ok) - 1)
+    reference = sorted_ok.iloc[rank]
+
+    offset_min = {axis: float(reference[f"_offset_min_{axis}"]) for axis in ("y", "x", "z")}
+    offset_max = {axis: float(reference[f"_offset_max_{axis}"]) for axis in ("y", "x", "z")}
+    bbox_extent_reduced = {axis: offset_max[axis] - offset_min[axis] for axis in ("y", "x", "z")}
+
+    offset_min_full = {
+        axis: float(offset_min[axis] * factor)
+        for axis, factor in zip(("y", "x", "z"), downscale_factors)
+    }
+    offset_max_full = {
+        axis: float(offset_max[axis] * factor)
+        for axis, factor in zip(("y", "x", "z"), downscale_factors)
+    }
+
+    return {
+        "method": "joint_per_patient",
+        "percentile": float(percentile),
+        "num_cases_calibration": int(len(ok)),
+        "reference_case_img_id": int(reference["img_id"]),
+        "downscale_factors": list(downscale_factors),
+        "offset_min_reduced": offset_min,
+        "offset_max_reduced": offset_max,
+        "offset_min_full_resolution": offset_min_full,
+        "offset_max_full_resolution": offset_max_full,
+        "bbox_extent_reduced": bbox_extent_reduced,
+    }
+
+
 def validate_coverage(records_df: pd.DataFrame, calibration: dict[str, Any]) -> pd.DataFrame:
     """Verifica, por caso, se o bbox calibrado (âncora + offsets fixos) cobre o label coronário.
 
@@ -331,5 +409,6 @@ __all__ = [
     "process_block",
     "run_aorta_anchor_batch",
     "calibrate_bbox_offsets",
+    "calibrate_bbox_size_joint",
     "validate_coverage",
 ]

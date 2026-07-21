@@ -27,6 +27,7 @@ _SYMBOL_TO_MODULE = {
     "segment_aorta": "aorta_anchor",
     "run_aorta_anchor_batch": "aorta_anchor",
     "calibrate_bbox_offsets": "aorta_anchor",
+    "calibrate_bbox_size_joint": "aorta_anchor",
     "validate_coverage": "aorta_anchor",
 }
 

@@ -278,12 +278,14 @@ uv run python src/run_aorta_anchor.py
 ```
 
 **Executado sobre as 1000 imagens em 2026-07-15/16** (split `imagecas_splits_train90.json`, 90
-casos de treino) — ver Estado Atual abaixo. **Achado bloqueante**: cobertura em val/test não chega
-a 100% (94,7-96,7%) e o bbox calibrado é enorme (`Rv` médio ~5%, às vezes negativo) — detalhes em
-[docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md#-achado-bloqueante-novo-o-bbox-calibrado-é-enorme--rv-é-ruim-às-vezes-negativo).
-Etapas 7-8 (posicionar/cortar o bbox na imagem em resolução integral) seguem sem código próprio —
-não faz sentido implementá-las sobre uma calibração com esse problema. O plano original completo
-(anterior à âncora pela aorta) segue em
+casos de treino) — ver Estado Atual abaixo. Três variantes de calibração de bbox de **tamanho
+fixo** foram tentadas entre 2026-07-15 e 2026-07-21 (min/max marginal, percentil marginal, paciente
+único por 2 critérios) e nenhuma concilia cobertura alta com `Rv` bom — detalhes completos em
+[docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md). **A ideia de tamanho fixo foi
+abandonada em 2026-07-21**; o pivô é um envelope individual por imagem, ainda não implementado
+(decisão pendente sobre de onde vem o tamanho de cada envelope, ver Estado Atual). Etapas 7-8
+(posicionar/cortar o bbox na imagem em resolução integral) seguem sem código próprio. O plano
+original completo (anterior à âncora pela aorta) segue em
 [docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md), Seção 8.
 
 ## 📈 Estado Atual do Projeto
@@ -296,24 +298,30 @@ não faz sentido implementá-las sobre uma calibração com esse problema. O pla
 - [x] Mapeamento documentado do código reaproveitável ([docs/CODE_NOTES_bounding_box.md](docs/CODE_NOTES_bounding_box.md))
 - [x] Etapa 5 — cálculo do centróide geométrico do volume cardíaco binário ([docs/step5_centroid.md](docs/step5_centroid.md))
 - [x] Etapa 6, 1ª tentativa (âncora=LCC) — código pronto e testado, **substituída** após achado de que a máscara do LCC não isola o coração ([docs/step6_envelope.md](docs/step6_envelope.md))
-- [x] Etapa 6, 2ª tentativa (âncora=aorta via Hough+Level Set) — código pronto, testado (38 testes), **lote completo das 1000 imagens executado** (2026-07-15/16, split `train90`) — mas revelou um achado bloqueante novo, ver abaixo ([docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md))
+- [x] Etapa 6, 2ª tentativa (âncora=aorta via Hough+Level Set) — código pronto, testado (45 testes), **lote completo das 1000 imagens executado** (2026-07-15/16, split `train90`) — calibração de tamanho fixo abandonada em 2026-07-21 após 3 variantes falharem, ver abaixo ([docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md))
 
 ### ⚠️ Bloqueado — decisão pendente (etapa 6 v2)
 
-- **Achado (2026-07-16):** com o lote completo rodado (994/1000 casos, calibração em 88 casos de
-  treino), a cobertura em val/test ficou em 94,7-96,7% (não 100%) **e** o bbox calibrado ficou
-  enorme — 480×415×313 voxels em resolução integral (imagens originais são tipicamente
-  512×512×200-300), dando `Rv` médio de só **~5%** (às vezes negativo, quando o bbox excede o
-  próprio tamanho da imagem em z). Causa: `calibrate_bbox_offsets` toma o mínimo/máximo de cada
-  eixo **independentemente** entre os casos de treino — o bbox final precisa satisfazer o extremo
-  de y de um paciente, o de x de outro e o de z de um terceiro, uma combinação que nenhum paciente
-  real atinge sozinho. Ampliar ainda mais o split de treino tende a piorar isso, não corrigir.
-  Detalhes completos, dados e possíveis direções de correção (não decidido) em
-  [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md).
+- **Achado (2026-07-16 a 2026-07-21):** nenhuma das 3 variantes de calibração de bbox de tamanho
+  **fixo** testadas concilia cobertura alta com `Rv` bom:
+  - Min/max marginal por eixo (`calibrate_bbox_offsets`, o método original): cobertura 94,7-96,7%,
+    `Rv` médio ~5% (bbox quase do tamanho da imagem original — combina o extremo de cada eixo de
+    um paciente diferente, uma combinação que nenhum paciente real atinge).
+  - Percentil marginal (relaxar de 100% para 95% de cobertura no treino): cobertura despenca para
+    75,9%, `Rv` sobe só para 44% — sem meio-termo viável.
+  - Paciente único (usar o extent 3D de 1 paciente real como bbox, testado por maior volume e por
+    "mais equilibrado"): `Rv` ótimo (67-68%), mas cobertura de 2-13% — pior que o método original.
+  - **Conclusão**: a variabilidade anatômica entre pacientes (relativa à âncora da aorta) é grande
+    demais para qualquer bbox de tamanho **fixo** compartilhado por todas as imagens, seja qual for
+    o método de agregação. **Decisão (2026-07-21): abandonar tamanho fixo**, pivotar para um
+    envelope individual por imagem — ainda não implementado. Decisão pendente: de onde vem o
+    tamanho de cada envelope individual (usar o label de cada imagem dá cobertura/Rv triviais, mas
+    vaza informação em val/test que o pipeline não teria numa aplicação real — ver
+    [docs/step6v2_aorta_anchor.md](docs/step6v2_aorta_anchor.md), seção "Decisão (2026-07-21)").
 
 ### 🚧 Próximos Passos
 
-- [ ] Decidir como endereçar o achado acima antes de implementar as etapas 7-8 (posicionamento/corte do bbox) — não faz sentido implementá-las sobre uma calibração que não atinge cobertura de 100% nem `Rv` relevante
+- [ ] Decidir de onde vem o tamanho do envelope individual por imagem (ver achado acima) antes de implementar
 - [ ] Persistir resultados agregados (por caso e globais) seguindo o padrão de `output/` já usado pelo pipeline herdado
 
 ## 🔍 Observações e Riscos

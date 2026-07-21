@@ -3,6 +3,12 @@
 > Parte da sequência do Capítulo 2 (Seção 2.3.1). Documenta a segunda tentativa da etapa 6, depois
 > do achado bloqueante da primeira tentativa (via LCC) registrado em
 > [step6_envelope.md](step6_envelope.md). Ver também [CODE_NOTES_bounding_box.md](CODE_NOTES_bounding_box.md).
+>
+> **Status em 2026-07-21**: a âncora pela aorta (centróide 3D via Hough+Level Set) continua válida
+> e em uso. Mas a ideia de um **bbox de tamanho fixo** calibrado a partir dela — o "Caminho
+> adotado" original descrito logo abaixo — foi **abandonada** depois de 3 variantes de calibração
+> falharem em conciliar cobertura alta com `Rv` bom (ver seção "Decisão (2026-07-21)" mais adiante
+> no documento). O pivô atual é um envelope individual por imagem, ainda não implementado.
 
 ## Por que uma segunda tentativa
 
@@ -287,20 +293,69 @@ que valha a pena. **Não descarta** abordagens que respeitem a correlação entr
 caso, não marginal eixo a eixo) — essa variante mais sofisticada do item 1, e as demais direções
 listadas abaixo, continuam em aberto.
 
-**Possíveis direções (não decidido, para discutir):**
-1. Repensar a agregação da calibração — em vez de min/max independente por eixo, considerar algo
-   que respeite a correlação entre eixos por paciente (ex.: um envelope por percentil conjunto, ou
-   aceitar formalmente uma cobertura estatística em vez de min/max absoluto). A versão marginal
-   simples desse último já foi testada acima ("Explorado: recalibração por percentil") e não
-   resolve sozinha — falta tentar uma versão que considere os 3 eixos conjuntamente por caso.
+### Explorado (2026-07-21): calibração conjunta por paciente único — também não resolve
+
+Testado o restante do item 1 (a variante "que considere os 3 eixos conjuntamente por caso", citada
+acima como ainda em aberto): em vez de combinar o extremo de cada eixo de pacientes diferentes
+(`calibrate_bbox_offsets`) ou relaxar cada eixo isoladamente por percentil marginal (seção
+anterior), usar o extent 3D de **um único paciente real** de treino — um triplete `(y, x, z)`
+coerente, vindo do mesmo caso — como o bbox calibrado inteiro. Implementado em
+`calibrate_bbox_size_joint()` (`src/utils/segmentation/aorta_anchor.py`, 8 testes em
+`tests/test_aorta_anchor.py`), compatível com `validate_coverage()` sem alteração (mesmo schema de
+dict de calibração que `calibrate_bbox_offsets()`).
+
+Testados dois critérios de seleção do paciente de referência entre os 88 de treino:
+
+| Critério de seleção | Caso escolhido | Extent (y, x, z), resolução reduzida | Cobertura conjunta (fora da calibração) | `Rv` médio |
+|---|---|---|---|---|
+| Maior volume (`extent_y × extent_x × extent_z`) | 291 | 176, 136, 224 | **1,99%** | 67,3% |
+| Mais equilibrado (maior percentil mínimo entre os 3 eixos) | 570 | 178, 143, 205 | **12,69%** | 68,2% |
+
+Ambos dão `Rv` ótimo, mas cobertura piores que o método marginal atual (95,14%) — não é uma opção
+viável como está. Diagnóstico do caso 291 (maior volume): falha em 88% dos casos no eixo y e 95,7%
+no eixo x, mas só 26,7% no eixo z — ele é extenso em z (por isso "maior volume"), mas estreito em x
+e y. **"Maior volume" não implica "grande nos 3 eixos ao mesmo tempo"** — daí o critério
+"equilibrado" (rank percentual mínimo entre os 3 eixos) ter sido testado como alternativa, com
+melhora real (1,99% → 12,69%) mas ainda muito aquém do necessário.
+
+**Conclusão**: nenhum paciente individual real, por melhor que seja escolhido, tem porte suficiente
+para servir de envelope para os outros ~900 casos. Não é um problema do critério de seleção — é a
+variabilidade anatômica entre pacientes (relativa à âncora da aorta) sendo grande demais para
+qualquer método baseado em tamanho(s) real(is) observado(s), seja um paciente só ou min/max entre
+vários. **Isso esgota, nas variantes testadas, a direção 1** (marginal-percentil e paciente-único
+em 2 critérios) — ver decisão abaixo.
+
+Reproduzível via consulta direta a `all_cases.csv` + `calibrate_bbox_size_joint()` +
+`validate_coverage()`, sem reprocessar o dataset (mesmo padrão das explorações anteriores).
+
+### Decisão (2026-07-21): abandonar bbox de tamanho fixo, pivotar para envelope individual por imagem
+
+Com a direção 1 esgotada nas variantes testadas, Hélder decidiu **abandonar a ideia de um tamanho
+de bbox fixo compartilhado por todas as imagens** (o desenho original da etapa 6 desde o início do
+capítulo) e pediu um **envelope individual por imagem** — cada imagem com seu próprio tamanho de
+bbox, não um tamanho único aplicado a todas.
+
+**Isso ainda não foi implementado.** Ficou pendente uma decisão metodológica importante antes de
+implementar: **de onde deve vir o tamanho do envelope de cada imagem?** Se vier do label verdadeiro
+daquela mesma imagem, o resultado tem cobertura 100% trivial e `Rv` ótimo — mas usar o label de
+val/test para definir o pré-processamento deles seria vazamento de informação que o pipeline não
+teria disponível numa aplicação real (o Cap. 2 existe para localizar a região sem saber de antemão
+onde está a artéria). Perguntado a Hélder; ele pediu para não aprofundar por ora e só consolidar o
+que foi encontrado hoje (esta seção + commit). **Retomar essa pergunta explicitamente antes de
+implementar qualquer envelope individual** — não presumir o critério.
+
+### Possíveis direções (histórico — 1, marginal e paciente-único, esgotada; ver decisão acima para o rumo atual)
+
+1. ~~Repensar a agregação da calibração~~ — testado em duas variantes (percentil marginal,
+   2026-07-17; paciente único por 2 critérios, 2026-07-21), nenhuma resolve. Ver seções acima.
 2. Revisar se a âncora (centróide da aorta) é o ponto de referência certo — a Opção B cogitada em
    2026-07-15 (ponto médio dos óstios, mais próximo anatomicamente do início da árvore coronária)
-   poderia reduzir a dispersão dos offsets por eixo.
+   poderia reduzir a dispersão dos offsets por eixo. Não testada.
 3. Investigar os casos mais extremos (excesso de 30-67 voxels na cobertura, ou os 6 argmin/argmax
    da calibração) individualmente — podem ser outliers anatômicos genuínos ou indicar problema no
-   label/dado de origem.
-4. Reconsiderar se um bbox de tamanho fixo por eixo (retangular, alinhado aos eixos) é viável para
-   este objetivo, ou se a variabilidade anatômica exige outra estratégia geométrica.
+   label/dado de origem. Não testada.
+4. **Adotada em 2026-07-21** (ver "Decisão" acima): abandonar bbox de tamanho fixo, envelope
+   individual por imagem. Critério de tamanho ainda em aberto.
 
 ### Onde estão os resultados
 
@@ -314,6 +369,8 @@ listadas abaixo, continuam em aberto.
 
 ## Não incluído nesta etapa / decisões em aberto
 
-- Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas —
-  ficam mais diretas agora: `bbox_min = âncora_resolução_integral + offset_min_full_resolution`,
-  `bbox_max = âncora_resolução_integral + offset_max_full_resolution`, por eixo.
+- Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
+  **A fórmula `bbox_min/max = âncora + offset_min/max_full_resolution` (por eixo) valia para um
+  bbox de tamanho FIXO — não vale mais** desde a decisão de 2026-07-21 de usar um envelope
+  individual por imagem (ver seção "Decisão" acima). Não implementar etapas 7-8 até o critério de
+  tamanho do envelope individual ser decidido.

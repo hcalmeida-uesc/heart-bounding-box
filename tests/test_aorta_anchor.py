@@ -10,6 +10,7 @@ from utils.processing.preprocessing import downscale_image_ndi
 from utils.segmentation.aorta_anchor import (
     AORTA_ANCHOR_RECORD_COLUMNS,
     calibrate_bbox_offsets,
+    calibrate_bbox_size_joint,
     process_block,
     process_case_for_aorta_anchor,
     validate_coverage,
@@ -220,6 +221,105 @@ def test_validate_coverage_flags_case_outside_calibrated_bbox():
     assert bool(row["covered_x"]) is True
     assert bool(row["covered_z"]) is False
     assert bool(row["covered"]) is False
+
+
+def test_calibrate_bbox_size_joint_at_100_uses_largest_volume_case_verbatim():
+    calibration = calibrate_bbox_size_joint(
+        _calibration_records(), downscale_factors=(2, 2, 1), percentile=100
+    )
+
+    # caso 2: extent y=27 (85-112), x=10 (98-108), z=68 (30-98) -> volume=18360
+    # caso 1: extent y=15, x=15, z=62 -> volume=13950 (menor) -> caso 2 deve ser escolhido.
+    assert calibration["method"] == "joint_per_patient"
+    assert calibration["reference_case_img_id"] == 2
+    assert calibration["num_cases_calibration"] == 2
+    # offsets vêm inteiramente do caso 2, nunca misturados com o caso 1.
+    assert calibration["offset_min_reduced"] == pytest.approx({"y": -15.0, "x": -2.0, "z": -70.0})
+    assert calibration["offset_max_reduced"] == pytest.approx({"y": 12.0, "x": 8.0, "z": -2.0})
+
+
+def test_calibrate_bbox_size_joint_at_50_uses_smaller_volume_case():
+    calibration = calibrate_bbox_size_joint(
+        _calibration_records(), downscale_factors=(2, 2, 1), percentile=50
+    )
+
+    # com 2 casos, percentile=50 (rank 0 em ordem ascendente de volume) escolhe o caso 1
+    # (volume 13950), o de menor volume entre os dois.
+    assert calibration["reference_case_img_id"] == 1
+    assert calibration["offset_min_reduced"] == pytest.approx({"y": -10.0, "x": -5.0, "z": -60.0})
+    assert calibration["offset_max_reduced"] == pytest.approx({"y": 5.0, "x": 10.0, "z": 2.0})
+
+
+def test_calibrate_bbox_size_joint_never_exceeds_marginal_extent():
+    # Invariante central do método: por nunca combinar o extremo de um eixo de um paciente com
+    # o de outro eixo de outro paciente, o volume do bbox conjunto (de um único paciente real)
+    # não deve exceder o volume do bbox marginal (calibrate_bbox_offsets).
+    marginal = calibrate_bbox_offsets(_calibration_records(), downscale_factors=(2, 2, 1))
+    joint = calibrate_bbox_size_joint(
+        _calibration_records(), downscale_factors=(2, 2, 1), percentile=100
+    )
+
+    marginal_extent = marginal["bbox_extent_reduced"]
+    joint_extent = joint["bbox_extent_reduced"]
+    marginal_volume = marginal_extent["y"] * marginal_extent["x"] * marginal_extent["z"]
+    joint_volume = joint_extent["y"] * joint_extent["x"] * joint_extent["z"]
+
+    assert joint_volume <= marginal_volume
+
+
+def test_calibrate_bbox_size_joint_scales_to_full_resolution():
+    calibration = calibrate_bbox_size_joint(
+        _calibration_records(), downscale_factors=(2, 2, 1), percentile=100
+    )
+
+    assert calibration["offset_min_full_resolution"]["y"] == pytest.approx(-30.0)
+    assert calibration["offset_max_full_resolution"]["x"] == pytest.approx(16.0)
+    assert calibration["offset_max_full_resolution"]["z"] == pytest.approx(-2.0)  # fator z=1
+
+
+def test_calibrate_bbox_size_joint_raises_when_no_ok_cases():
+    records_df = pd.DataFrame([{"img_id": 1, "status": "error"}])
+
+    with pytest.raises(ValueError, match="Nenhum caso"):
+        calibrate_bbox_size_joint(records_df, downscale_factors=(2, 2, 1))
+
+
+def test_calibrate_bbox_size_joint_raises_on_invalid_percentile():
+    with pytest.raises(ValueError, match="percentile"):
+        calibrate_bbox_size_joint(_calibration_records(), downscale_factors=(2, 2, 1), percentile=0)
+
+    with pytest.raises(ValueError, match="percentile"):
+        calibrate_bbox_size_joint(
+            _calibration_records(), downscale_factors=(2, 2, 1), percentile=101
+        )
+
+
+def test_calibrate_bbox_size_joint_is_compatible_with_validate_coverage():
+    calibration = calibrate_bbox_size_joint(
+        _calibration_records(), downscale_factors=(2, 2, 1), percentile=100
+    )
+
+    held_out = pd.DataFrame(
+        [
+            {
+                "img_id": 42,
+                "status": "ok",
+                "anchor_y": 100.0,
+                "anchor_x": 100.0,
+                "anchor_z": 100.0,
+                "label_y_min": 90,
+                "label_y_max": 105,
+                "label_x_min": 99,
+                "label_x_max": 107,
+                "label_z_min": 35,
+                "label_z_max": 95,
+            }
+        ]
+    )
+
+    result = validate_coverage(held_out, calibration)
+    assert "covered" in result.columns
+    assert bool(result.iloc[0]["covered"]) is True
 
 
 def test_validate_coverage_marks_case_inside_calibrated_bbox_as_covered():
