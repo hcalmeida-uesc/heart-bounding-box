@@ -7,6 +7,7 @@ from utils.segmentation.bounding_box import (
     compute_bounding_box_bounds,
     compute_bounding_extent,
     compute_geometric_centroid,
+    compute_proximal_z_anchor,
 )
 
 
@@ -168,3 +169,37 @@ def test_bounds_raises_on_non_3d_input():
 
     with pytest.raises(ValueError, match="deve ser 3D"):
         compute_bounding_box_bounds(mask)
+
+
+def test_proximal_z_anchor_of_single_voxel():
+    mask = np.zeros((10, 10, 10), dtype=bool)
+    mask[3, 4, 5] = True
+
+    z_anchor = compute_proximal_z_anchor(mask)
+
+    assert z_anchor == 5.0
+
+
+def test_proximal_z_anchor_matches_bounds_min_z_for_asymmetric_mask():
+    mask = np.zeros((20, 20, 20), dtype=bool)
+    mask[2:4, 5:9, 10:16] = True  # y em [2,3], x em [5,8], z em [10,15]
+
+    z_anchor = compute_proximal_z_anchor(mask)
+    min_coords, _ = compute_bounding_box_bounds(mask)
+
+    assert z_anchor == float(min_coords[2])
+    assert z_anchor == 10.0
+
+
+def test_proximal_z_anchor_raises_on_empty_mask():
+    mask = np.zeros((5, 5, 5), dtype=bool)
+
+    with pytest.raises(ValueError, match="não contém nenhum voxel"):
+        compute_proximal_z_anchor(mask)
+
+
+def test_proximal_z_anchor_raises_on_non_3d_input():
+    mask = np.zeros((5, 5), dtype=bool)
+
+    with pytest.raises(ValueError, match="deve ser 3D"):
+        compute_proximal_z_anchor(mask)

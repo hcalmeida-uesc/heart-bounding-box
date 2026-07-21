@@ -12,6 +12,8 @@ _SYMBOL_TO_MODULE = {
     # bounding_box
     "compute_geometric_centroid": "bounding_box",
     "compute_bounding_extent": "bounding_box",
+    "compute_bounding_box_bounds": "bounding_box",
+    "compute_proximal_z_anchor": "bounding_box",
     # envelope
     "discover_dataset_blocks": "envelope",
     "process_case_for_envelope": "envelope",

@@ -350,7 +350,14 @@ implementar qualquer envelope individual** — não presumir o critério.
    2026-07-17; paciente único por 2 critérios, 2026-07-21), nenhuma resolve. Ver seções acima.
 2. Revisar se a âncora (centróide da aorta) é o ponto de referência certo — a Opção B cogitada em
    2026-07-15 (ponto médio dos óstios, mais próximo anatomicamente do início da árvore coronária)
-   poderia reduzir a dispersão dos offsets por eixo. Não testada.
+   poderia reduzir a dispersão dos offsets por eixo. **Detecção de óstios de verdade continua não
+   testada.** Um proxy barato (`z_min` da máscara da aorta, sem detecção de óstios — ver
+   "Diagnóstico exploratório (2026-07-22)" acima) foi testado como forma rápida de checar a
+   hipótese antes de investir na detecção real: a dispersão em z **piorou**, não melhorou, e
+   `z_min` mostrou-se sensível a onde o rastreamento Hough+Level Set termina (não uma referência
+   anatômica estável). Isso não descarta a Opção B (óstios reais seriam uma referência anatômica
+   precisa, diferente de `z_min`), mas também não a confirma — decisão sobre investir nisso segue
+   em aberto.
 3. Investigar os casos mais extremos (excesso de 30-67 voxels na cobertura, ou os 6 argmin/argmax
    da calibração) individualmente — podem ser outliers anatômicos genuínos ou indicar problema no
    label/dado de origem. Não testada.
@@ -407,6 +414,64 @@ Reproduzível chamando `segment_aorta(lcc_image, scaled_spacing, config)` (de
 `aorta_anchor.py`) com a saída de `load_and_preprocess_image` para qualquer `img_id`, depois
 `compute_bounding_box_bounds` na máscara resultante e no label (`label == 1`) para obter os
 extremos em z e medir a distância até o label como acima.
+
+## Diagnóstico exploratório (2026-07-22): a âncora atual mistura arco+descendente no eixo z?
+
+Antes de decidir se vale reintroduzir a detecção de óstios (mais cara, mais código), testada a
+hipótese de que parte da dispersão do offset em z (que motivou o bbox de 480×414×312, ver achado
+acima) vem de ruído de captura — a extensão do trecho descendente da aorta dentro do campo de
+visão varia por protocolo de aquisição, não por anatomia coronária — em vez de variabilidade
+anatômica real entre pacientes. Se assim fosse, trocar o centróide 3D da máscara inteira por uma
+âncora baseada só no lado proximal (`z_min`, o lado da raiz confirmado na seção anterior) deveria
+reduzir a dispersão do offset em z.
+
+**Método**: amostra estratificada de 50 casos (10 por bloco × 5 blocos, seed=42), reaproveitando
+`label_min`/`label_max` e a âncora atual (centróide) já salvos em `all_cases.csv` — único
+reprocessamento foi rodar `segment_aorta` de novo em cada caso da amostra, só para extrair `z_min`
+via `compute_proximal_z_anchor` (nova função em `bounding_box.py`, wrapper sobre
+`compute_bounding_box_bounds`). y/x da âncora candidata usam o mesmo centróide da âncora atual —
+controle, não deveriam mudar entre as duas versões. Não altera nenhum artefato de produção:
+script em `src/eda/diagnose_z_anchor_dispersion.py`, saída em
+`output/bounding_box/aorta_anchor_z_diagnosis/` (pasta nova).
+
+**Checagem de sanidade**: `z_min < z_max` em todos os 50 casos (sem inversão de lado).
+
+**Resultado — dispersão do offset (`label − âncora`), desvio-padrão e amplitude (max−min) entre
+os 50 casos, para as duas âncoras:**
+
+| Eixo | Lado | std atual | amplitude atual | std candidata | amplitude candidata | Δ std | Δ amplitude |
+|---|---|---|---|---|---|---|---|
+| y | mín | 19,86 | 132,84 | 19,86 | 132,84 | 0,0% | 0,0% |
+| y | máx | 20,00 | 103,84 | 20,00 | 103,84 | 0,0% | 0,0% |
+| x | mín | 12,75 | 62,77 | 12,75 | 62,77 | 0,0% | 0,0% |
+| x | máx | 12,20 | 53,27 | 12,20 | 53,27 | 0,0% | 0,0% |
+| z | mín | 26,75 | 122,32 | 32,86 | 182,00 | **−22,8%** | **−48,8%** |
+| z | máx | 22,07 | 126,30 | 28,34 | 206,00 | **−28,4%** | **−63,1%** |
+
+(Δ negativo = a dispersão da âncora candidata é *maior* que a atual, não menor.) y/x com Δ
+exatamente 0,0% nos 50 casos — confirma que o controle funcionou (mesma referência y/x nas duas
+âncoras). Em z, a dispersão **piora** com a âncora candidata nos dois lados e nas duas métricas.
+
+**Achado adicional**: `z_min` (âncora candidata) correlaciona com `num_circles_detected`
+(r=−0,68) e com o tempo de processamento do caso (r=−0,71) na amostra — quanto mais círculos o
+Hough/Level Set detecta (rastreamento mais longo), menor o `z_min` alcançado. Ou seja, `z_min`
+reflete principalmente até onde o rastreamento consegue avançar (sensível a contraste, ruído,
+parâmetros de tolerância do algoritmo) — não é uma referência anatômica estável, ao contrário do
+centróide, que é uma média sobre todos os voxels da máscara e por isso menos sensível a onde
+exatamente o rastreamento termina.
+
+**Interpretação**: a hipótese não se sustenta nesta amostra — trocar o centróide por `z_min` como
+componente z da âncora aumenta a dispersão do offset em z (22-28% em desvio-padrão, 49-63% em
+amplitude), em vez de reduzi-la. A dispersão observada não parece ser, predominantemente, ruído de
+FOV do trecho descendente absorvido pelo centróide; parece estar mais relacionada à
+variabilidade de onde o rastreamento Hough+Level Set termina (achado adicional acima) e/ou a
+variabilidade anatômica real entre pacientes — este diagnóstico não separa as duas. Decisão sobre
+reintroduzir detecção de óstios (ou outra direção) não tomada aqui.
+
+Reproduzível: `uv run python src/eda/diagnose_z_anchor_dispersion.py` (retomável via
+`candidate_anchor_z.csv`; `--fresh` reprocessa do zero, `--sample-per-block N`/`--seed S` ajustam
+a amostra). Dados: `output/bounding_box/aorta_anchor_z_diagnosis/{candidate_anchor_z,
+offsets_detail,dispersion_comparison}.csv`.
 
 ## Não incluído nesta etapa / decisões em aberto
 

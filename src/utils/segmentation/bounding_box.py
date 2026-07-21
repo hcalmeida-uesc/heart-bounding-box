@@ -109,8 +109,34 @@ def compute_bounding_box_bounds(
     return coords.min(axis=0), coords.max(axis=0)
 
 
+def compute_proximal_z_anchor(mask: NDArray[Any]) -> float:
+    """Extrai só a coordenada z do limite mínimo do bbox da máscara (etapa 6 v2, diagnóstico).
+
+    Wrapper fino sobre :func:`compute_bounding_box_bounds` — não reimplementa a lógica de bbox.
+    `z_min` é o lado proximal/raiz da máscara da aorta (Hough+Level Set) neste dataset, confirmado
+    empiricamente em 2026-07-21 (ver ``docs/step6v2_aorta_anchor.md``, seção "Detalhe técnico
+    confirmado"). Candidata a componente z de uma âncora alternativa, testada num diagnóstico
+    exploratório (ver ``docs/step6v2_aorta_anchor.md``, seção sobre dispersão do offset em z) —
+    não é a âncora de produção, que continua sendo :func:`compute_geometric_centroid` da máscara
+    inteira via `aorta_anchor.process_case_for_aorta_anchor`.
+
+    Args:
+        mask: Volume 3D binário (ex.: máscara da aorta retornada por ``segment_aorta``).
+
+    Returns:
+        Coordenada z (float) do limite mínimo do bbox que envolve os voxels não-nulos.
+
+    Raises:
+        ValueError: se ``mask`` não for 3D ou não tiver nenhum voxel não-nulo (propagado de
+            :func:`compute_bounding_box_bounds`).
+    """
+    min_coords, _ = compute_bounding_box_bounds(mask)
+    return float(min_coords[2])
+
+
 __all__ = [
     "compute_geometric_centroid",
     "compute_bounding_extent",
     "compute_bounding_box_bounds",
+    "compute_proximal_z_anchor",
 ]
