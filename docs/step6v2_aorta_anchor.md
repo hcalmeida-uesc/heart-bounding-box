@@ -544,6 +544,74 @@ Reproduzível: `uv run python src/eda/analyze_num_circles_offset_correlation.py`
 `output/bounding_box/aorta_anchor_z_diagnosis/{num_circles_offset_detail,
 num_circles_offset_correlations,num_circles_offset_sign_summary,worst_coverage_num_circles}.csv`.
 
+## Diagnóstico complementar (2026-07-24): falha de cobertura em z por quintil de `num_circles_detected`
+
+Continuação não-paramétrica dos diagnósticos de 2026-07-22/23 (correlação linear/rank, que assume
+relação monotônica e por isso pode mascarar um padrão em U). Aqui os 906 casos de val+test são
+agrupados em **quintis** de `num_circles_detected` (~181 casos por faixa) e reportamos a taxa de
+falha de cobertura por faixa — sem ajustar modelo quadrático nem qualquer outra forma funcional,
+propositalmente, para ver o padrão bruto antes de impor uma hipótese.
+
+Sem reprocessar nada: `num_circles_detected` já vem direto em `coverage_{val,test}_imagecas_
+splits_train90.csv` (confirmado por join com `all_cases.csv` via `img_id` — os valores batem em
+todos os 906 casos, então nenhum merge era de fato necessário para uso, só para checagem da chave).
+Script: `src/eda/analyze_num_circles_quintile_coverage.py`.
+
+**Correção a um número citado na solicitação**: os "44 casos" já documentados na seção de
+cobertura val/test são a falha **conjunta** (`covered`==False, qualquer eixo), não uma contagem
+específica de z. A falha binária **só em z** é **18** de 906 (1,99%); em y é 22 (2,43%); em x é 16
+(1,77%).
+
+**Taxa de falha de cobertura por quintil de `num_circles_detected` (906 casos):**
+
+| Quintil | `num_circles_detected` | N | Falhas y (n / %) | Falhas x (n / %) | Falhas z (n / %) |
+|---|---|---|---|---|---|
+| 1 | 2 – 83 | 182 | 12 / 6,59% | 6 / 3,30% | 11 / 6,04% |
+| 2 | 84 – 99 | 186 | 1 / 0,54% | 1 / 0,54% | 0 / 0,00% |
+| 3 | 100 – 112 | 176 | 1 / 0,57% | 4 / 2,27% | 0 / 0,00% |
+| 4 | 113 – 130 | 187 | 0 / 0,00% | 2 / 1,07% | 0 / 0,00% |
+| 5 | 131 – 275 | 175 | 8 / 4,57% | 3 / 1,71% | 7 / 4,00% |
+
+**Padrão em U visível a olho nu em z (e também em y), sem ajuste de curva**: as duas faixas
+extremas de `num_circles_detected` (menos de 84 círculos, ou mais de 130) concentram **18 das 18
+falhas de z** (11 + 7 = 18 = 100%) e a maior parte das falhas de y (20 de 22 = 91%) — as três
+faixas centrais (84–130 círculos, ~55% dos 906 casos) têm falha de z **zero**. O eixo x, usado como
+controle, não segue o mesmo padrão de forma tão limpa: tem sua maior taxa na faixa central
+(quintil 3, 2,27%) e não zera nas faixas do meio — é mais plano/ruidoso, sem o mesmo formato em U
+nítido de y e z.
+
+Isso é consistente com a hipótese de não-monotonicidade levantada no diagnóstico de 2026-07-23
+(mínimo e máximo populacional de `num_circles_detected` entre os 20 piores casos de cobertura) —
+aqui, agrupando por faixa em vez de correlacionar, o padrão em U fica visualmente muito mais claro
+para z e y do que a correlação linear/rank sozinha sugeria.
+
+**5 piores casos por excesso em z (voxels fora do bbox, não binário) entre os 906:**
+
+| img_id | split | `num_circles_detected` | excesso em z (voxels) | `covered_z` |
+|---|---|---|---|---|
+| 622 | test | 275 | 53,97 | False |
+| 790 | val | 226 | 39,84 | False |
+| 924 | test | 2 | 33,38 | False |
+| 777 | test | 17 | 31,57 | False |
+| 196 | test | 275 | 30,62 | False |
+
+Todos os 5 **coincidem** com casos já listados em `worst_coverage_num_circles.csv` (diagnóstico de
+2026-07-23) com `worst_axis`=z — consistente, não é um achado novo isolado. Note que os 5 já
+cobrem os dois extremos: 2 casos com `num_circles_detected` no teto da população (622, 196 —
+275 círculos, o máximo de toda a população de 994), 1 no piso (924 — 2 círculos, o mínimo), e 2 em
+valores intermediários mas ainda fora da faixa central sem falha (790 com 226, 777 com 17).
+
+Nenhuma coincidência com os 5 `img_id` citados na seção "Achado bloqueante novo" (934, 428, 90, 23,
+44) — aqueles são os casos que definiram os extremos do **split de treino** usado na calibração
+(`argmin/argmax_case_per_axis`), não os piores casos de cobertura em val/test; são conjuntos
+diferentes por construção e não há razão a priori para coincidirem.
+
+Reproduzível: `uv run python src/eda/analyze_num_circles_quintile_coverage.py`. Dados:
+`output/bounding_box/aorta_anchor_z_diagnosis/{num_circles_quintile_coverage,
+worst_z_excess_cases}.csv`. Nenhum artefato de produção alterado (não reprocessa, não regrava
+`calibration.json` nem os CSVs de cobertura). Interpretação do padrão em U (o que causa a faixa
+central ser "boa") e decisão sobre próximos passos não tomadas aqui, propositalmente.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

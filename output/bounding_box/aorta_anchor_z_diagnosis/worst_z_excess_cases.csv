@@ -1,0 +1,6 @@
+img_id,split,num_circles_detected,excess_z,covered_z
+622,test,275.0,53.973284995704404,False
+790,val,226.0,39.835116382945614,False
+924,test,2.0,33.38057663377253,False
+777,test,17.0,31.56703507051668,False
+196,test,275.0,30.62454386980849,False
