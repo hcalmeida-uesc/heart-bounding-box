@@ -745,6 +745,64 @@ Dados/imagens: `output/bounding_box/aorta_anchor_z_diagnosis/mask_leak_quantific
 `case_<id>_z_inspection.png` (regenerado para os 5 já existentes, novo para os 5 calibradores).
 Nenhum artefato de produção alterado.
 
+## Diagnóstico complementar (2026-07-26): "colar na borda do FOV" é raro ou universal?
+
+Dois passos de baixo custo, sem reprocessar o lote completo (994 casos).
+
+### Passo 1 — prevalência de `mask_z_max == volume_shape_z - 1` na população
+
+O diagnóstico anterior (2026-07-25) achou essa igualdade nos 10 casos-problema (5 piores cobertura
++ 5 calibradores) e não sabia dizer se isso discrimina esses casos ou é comum. `mask_z_max` **não é
+um campo salvo em `all_cases.csv`** para os 994 casos — só existe para a amostra de 50 casos já
+reprocessada no diagnóstico de 2026-07-22 (`candidate_anchor_z.csv`, coluna `z_max_mask`).
+Reprocessar os 994 casos completos só para obter esse campo estaria fora do escopo pedido (sem
+reprocessar o lote completo); em vez disso, reaproveitamos essa amostra de 50, sem processar nada
+de novo. Script: `src/eda/check_z_max_edge_prevalence.py`.
+
+**Resultado: 50 de 50 casos da amostra (100%) têm `mask_z_max == volume_shape_z - 1`,  em todos os
+5 quintis de `num_circles_detected` (5/5, 7/7, 13/13, 11/11, 14/14) — igual aos 10/10 (100%) dos
+casos-problema.** Ou seja, **"colar na borda do FOV" não é raro nem discrimina os casos-problema —
+é universal** (dentro da amostra disponível, 50 de 994 casos, não exaustivo). O achado 3 do
+diagnóstico anterior (todas as 10 máscaras terminam na borda) precisa ser lido à luz disso: **não é
+uma assinatura dos casos-problema, é o comportamento normal de praticamente todo caso** — a aorta
+ascendente detectada por Hough+Level Set aparentemente sempre se estende até a última fatia
+disponível do exame, problemático ou não. O que diferencia os casos-problema não é *chegar* na
+borda, é o que acontece **antes** de chegar lá (blob grande demais vs. fragmento minúsculo).
+
+Dados: `output/bounding_box/aorta_anchor_z_diagnosis/z_max_edge_prevalence_sample50.csv`.
+
+### Passo 2 — inspeção da imagem HU bruta (sem máscara) nas últimas fatias do FOV
+
+Para os 10 casos-problema + IMG_ID=1 (referência): as 5 últimas fatias do FOV (`z_max` até
+`z_max - 4`), imagem HU bruta, sem sobreposição de máscara, sem rodar
+`load_and_preprocess_image`/`segment_aorta` (só carrega o NIfTI bruto — mais barato que os
+diagnósticos anteriores; o eixo z não é reduzido de resolução, `DOWNSCALE_FACTORS[2] == 1`, então o
+índice de fatia bate 1:1 com o resto do diagnóstico). Script:
+`src/eda/inspect_fov_top_slices_raw.py`.
+
+**Estatísticas agregadas de HU na última fatia não mostram nada atípico**: médias entre -413 e -262
+HU, p99 entre 461 e 991 HU, todos os 11 casos (incluindo a referência) na mesma faixa — nenhum
+valor isolado se destaca como anômalo.
+
+**Observação visual qualitativa**: em todos os 11 casos, as últimas fatias mostram o mesmo nível
+anatômico — próximo ao desfiladeiro torácico/base do pescoço (clavículas visíveis na borda superior
+da imagem, traqueia, grandes vasos do arco/tronco braquiocefálico em corte transversal como
+estruturas redondas e claras). **Não parece artefato de reconstrução ou truncamento de FOV** — são
+estruturas anatômicas coerentes e nítidas, não ruído ou corte abrupto na borda da imagem. A
+diferença qualitativa entre a referência (IMG_ID=1, 1 estrutura vascular redonda claramente
+dominante nesse nível) e alguns casos-problema (622, 924, 44 — 2 a 4 estruturas redondas de
+brilho/tamanho parecido, próximas entre si) é sugestiva de uma região com múltiplos vasos de
+calibre semelhante (candidatos ambíguos para o Hough), mas **não é conclusiva** — amostra pequena
+(11 casos), sem comparação sistemática contra casos "bons" além da única referência, e a
+classificação de "quantos vasos redondos aparecem" foi feita visualmente, não com uma métrica
+objetiva.
+
+Nenhuma correção proposta — só o observado. Reproduzível:
+`uv run python src/eda/inspect_fov_top_slices_raw.py`. Dados/imagens:
+`output/bounding_box/aorta_anchor_z_diagnosis/fov_top_slices_raw_summary.csv` e
+`output/bounding_box/aorta_anchor_z_diagnosis/img/case_<id>_fov_top_raw.png` (11 casos, incluindo a
+referência `case_1_fov_top_raw.png`). Nenhum artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

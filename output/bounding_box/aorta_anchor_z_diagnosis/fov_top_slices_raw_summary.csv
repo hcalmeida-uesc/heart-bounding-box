@@ -1,0 +1,12 @@
+img_id,block,z_max,hu_mean_last_slice,hu_std_last_slice,hu_p99_last_slice,hu_max_last_slice,nonzero_fraction_last_slice,image_path
+622,601-800,274,-403.02520751953125,576.0469360351562,940.0,3068.0,0.9994163513183594,output\bounding_box\aorta_anchor_z_diagnosis\img\case_622_fov_top_raw.png
+196,1-200,274,-365.7635498046875,505.63287353515625,647.0,1212.0,0.9991035461425781,output\bounding_box\aorta_anchor_z_diagnosis\img\case_196_fov_top_raw.png
+790,601-800,274,-335.0121154785156,583.1690063476562,965.0,1697.0,0.9991073608398438,output\bounding_box\aorta_anchor_z_diagnosis\img\case_790_fov_top_raw.png
+924,801-1000,274,-262.0621337890625,501.23358154296875,930.0,1731.0,0.9989852905273438,output\bounding_box\aorta_anchor_z_diagnosis\img\case_924_fov_top_raw.png
+777,601-800,274,-413.02374267578125,529.8049926757812,746.0,3071.0,0.9989967346191406,output\bounding_box\aorta_anchor_z_diagnosis\img\case_777_fov_top_raw.png
+934,801-1000,274,-321.2652282714844,492.21966552734375,781.5700073242188,1394.0,0.9991645812988281,output\bounding_box\aorta_anchor_z_diagnosis\img\case_934_fov_top_raw.png
+428,401-600,274,-314.2710876464844,498.1190490722656,630.0,3071.0,0.9989242553710938,output\bounding_box\aorta_anchor_z_diagnosis\img\case_428_fov_top_raw.png
+90,1-200,274,-312.7598876953125,492.2412414550781,605.0,1033.0,0.9990310668945312,output\bounding_box\aorta_anchor_z_diagnosis\img\case_90_fov_top_raw.png
+23,1-200,274,-331.4033508300781,461.72955322265625,559.0,2916.0,0.9989738464355469,output\bounding_box\aorta_anchor_z_diagnosis\img\case_23_fov_top_raw.png
+44,1-200,205,-351.3730773925781,547.3649291992188,991.0,1506.0,0.9992103576660156,output\bounding_box\aorta_anchor_z_diagnosis\img\case_44_fov_top_raw.png
+1,1-200,274,-309.9342041015625,453.49755859375,506.0,1105.0,0.998809814453125,output\bounding_box\aorta_anchor_z_diagnosis\img\case_1_fov_top_raw.png
