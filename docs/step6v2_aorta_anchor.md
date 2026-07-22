@@ -674,6 +674,77 @@ Reproduzível: `uv run python src/eda/inspect_worst_z_excess_cases.py`. Dados/im
 `output/bounding_box/aorta_anchor_z_diagnosis/worst_z_excess_visual_inspection_summary.csv` e
 `output/bounding_box/aorta_anchor_z_diagnosis/img/*.png`. Nenhum artefato de produção alterado.
 
+## Diagnóstico complementar (2026-07-25): quantificação do leak (volume + área por fatia), 10 casos
+
+Continuação quantitativa da inspeção visual anterior. Dois grupos de 5 casos, mesmo método para
+os dois: volume total da máscara (voxels) comparado à referência de **IMG_ID=1 (336651 voxels,
+validado manualmente como caso "normal" — ver "Execução do lote completo")**, e o perfil de área de
+seção transversal por fatia axial ao longo do range z da máscara, para localizar saltos abruptos
+(assinatura esperada de leak) vs. área pequena e constante (assinatura esperada de truncamento).
+Script: `src/eda/quantify_aorta_mask_leak.py` (reaproveita `plot_case` de
+`inspect_worst_z_excess_cases.py` para as imagens sagital/coronal). Reprocessa só estes 10 casos
+(`load_and_preprocess_image` + `segment_aorta`); volume total já estava em `all_cases.csv`
+(`aorta_voxels`) para todos os 10 sem precisar reprocessar, mas o perfil de área por fatia não é um
+campo salvo em produção, daí o reprocessamento.
+
+**Grupo 1 — 5 piores casos de excesso em z** (já inspecionados visualmente antes):
+
+| img_id | volume (voxels) | vs. referência (336651) | mask z (min–max) | maior salto (z, Δ, x mediana) | CV da área |
+|---|---|---|---|---|---|
+| 622 | 1.569.468 | **4,66x** | 0 – 274 | z=1, Δ=1000 (0,16x) | 0,64 |
+| 196 | 1.667.441 | **4,95x** | 0 – 274 | z=1, Δ=647 (0,11x) | 0,59 |
+| 790 | 724.192 | **2,15x** | 39 – 274 | z=40, Δ=491 (0,15x) | 0,42 |
+| 924 | 1.836 | **0,005x** | 263 – 274 | z=274, Δ=46 (0,28x) | 0,35 |
+| 777 | 16.986 | **0,05x** | 258 – 274 | z=274, Δ=130 (0,12x) | 0,13 |
+
+**Grupo 2 — 5 casos que definiram os extremos da calibração original** (2026-07-16):
+
+| img_id | eixo | volume (voxels) | vs. referência (336651) | mask z (min–max) | maior salto (z, Δ, x mediana) | CV da área |
+|---|---|---|---|---|---|---|
+| 934 | y_min | 681.114 | **2,02x** | 103 – 274 | z=104, Δ=484 (0,10x) | 0,43 |
+| 428 | y_max/x_min | 536.221 | **1,59x** | 93 – 274 | z=274, Δ=219 (0,07x) | 0,26 |
+| 90 | x_max | 489.841 | **1,46x** | 126 – 274 | z=127, Δ=514 (0,23x) | 0,47 |
+| 23 | z_min | 66.303 | **0,20x** | 247 – 274 | z=274, Δ=204 (0,08x) | 0,08 |
+| 44 | z_max | 1.024.748 | **3,04x** | 10 – 205 | z=11, Δ=763 (0,12x) | 0,44 |
+
+**Achado 1 — nenhum dos 5 casos calibradores tem volume perto da referência**: variam de 0,20x a
+3,04x — a mesma assinatura já vista no grupo 1 (piores casos de cobertura), reforçando que os
+casos que definiram o tamanho do bbox calibrado (`bbox_extent_reduced` = 240×207×313, `Rv` ~5%) não
+parecem ter uma máscara de aorta "normal" em nenhum dos dois sentidos (nem os 4 grandes demais, nem
+o 1 pequeno demais).
+
+**Achado 2 — a métrica de "maior salto" não localiza bem o leak**: em 8 dos 10 casos, o maior salto
+de área entre fatias consecutivas ocorre exatamente na **primeira ou última fatia da máscara**
+(z=z_min+1 ou z=z_max) — ou seja, é só a transição natural de entrar/sair de área zero, não um
+salto *interno* que marcaria onde o vazamento começa. Essa métrica, como definida aqui (maior
+diferença absoluta entre fatias consecutivas), não separa bem leak de truncamento; o **coeficiente
+de variação (CV) da área ao longo da máscara** é mais informativo: os 3 casos de fragmento truncado
+(924, 777, 23) têm CV entre 0,08 e 0,35 (777 e 23 claramente baixos; 924 intermediário, não tão
+constante quanto o esperado), enquanto os casos de blob/leak variam mais (CV 0,26–0,64, sem
+separação limpa de um único corte).
+
+**Achado 3 — todas as 10 máscaras terminam exatamente na última fatia do volume**: `mask_z_max`
+coincide com `volume_shape_z − 1` nos 10 casos (274 para os 9 casos com 275 fatias; 205 para o
+caso 44, que tem só 206 fatias) — **inclusive os 3 fragmentos truncados** (924, 777, 23), cuja
+pequena máscara também está colada na borda superior do FOV, não solta no meio do volume. Não
+investigado a fundo aqui, mas sugere que a fatia mais superior do campo de visão desempenha algum
+papel sistemático nesses 10 casos-problema (estrutura anatômica real perto do desfiladeiro
+torácico/tronco braquiocefálico, artefato de borda do FOV, ou os dois) — não dá para distinguir
+causa com os dados já disponíveis.
+
+**Achado 4 — nem todo caso "grande" tem a forma de blob**: na inspeção visual, 622, 196, 790, 934 e
+44 mostram um blob arredondado, sem formato tubular, condizente com vazamento para outra estrutura
+(provável câmara cardíaca) — mas **428 e 90 têm formato de tubo/arco curvo plausível para uma
+aorta**, só que maior/mais longo que a referência e indo até a borda do FOV. Não dá para descartar
+que 428 e 90 sejam rastreamento correto de uma aorta genuinamente mais visível no campo de visão
+daquele exame (FOV maior), em vez de vazamento — distinção que a leitura visual sozinha não resolve.
+
+Nenhuma correção proposta. Reproduzível: `uv run python src/eda/quantify_aorta_mask_leak.py`.
+Dados/imagens: `output/bounding_box/aorta_anchor_z_diagnosis/mask_leak_quantification_summary.csv`,
+`output/bounding_box/aorta_anchor_z_diagnosis/img/case_<id>_area_profile.png` e
+`case_<id>_z_inspection.png` (regenerado para os 5 já existentes, novo para os 5 calibradores).
+Nenhum artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
