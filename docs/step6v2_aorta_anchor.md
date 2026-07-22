@@ -473,6 +473,77 @@ Reproduzível: `uv run python src/eda/diagnose_z_anchor_dispersion.py` (retomáv
 a amostra). Dados: `output/bounding_box/aorta_anchor_z_diagnosis/{candidate_anchor_z,
 offsets_detail,dispersion_comparison}.csv`.
 
+## Diagnóstico complementar (2026-07-23): `num_circles_detected` explica o offset de calibração?
+
+Extensão do diagnóstico anterior (2026-07-22, amostra de 50 casos) para a **população inteira**
+(994 casos) e para o **offset de produção** (`label − anchor_z`, âncora = centróide, não o `z_min`
+candidato testado ontem). Sem reprocessar nada: usa só `all_cases.csv`,
+`calibration_imagecas_splits_train90.json` e `coverage_{val,test}_imagecas_splits_train90.csv`, já
+salvos — `num_circles_detected` já estava persistido em todos os 994 casos `ok` (confirmado antes
+de rodar esta análise). Script: `src/eda/analyze_num_circles_offset_correlation.py` (reproduz
+localmente o ranking dos 20 piores casos com a mesma lógica de
+`plot_aorta_anchor_extremes.plot_worst_coverage_cases`, sem chamar essa função — evita
+re-salvar o PNG de produção).
+
+**Correlações (994 casos), offset bruto e desvio absoluto da mediana, vs. `num_circles_detected`:**
+
+| Comparação | Pearson r | Pearson p | Spearman r | Spearman p |
+|---|---|---|---|---|
+| `offset_min_z` (bruto) | 0,317 | <0,0001 | 0,085 | 0,0075 |
+| `offset_max_z` (bruto) | 0,424 | <0,0001 | 0,046 | 0,148 (n.s.) |
+| \|`offset_min_z` − mediana\| | 0,078 | 0,013 | 0,042 | 0,182 (n.s.) |
+| \|`offset_max_z` − mediana\| | 0,235 | <0,0001 | 0,219 | <0,0001 |
+
+Pearson e Spearman **divergem** bastante em 3 das 4 linhas (Pearson moderado/significativo,
+Spearman fraco ou não-significativo) — sinal de que a correlação linear não é robusta a
+outliers/não-linearidade, não uma relação monotônica limpa entre as variáveis.
+
+**Sinal — poucos vs. muitos círculos (corte na mediana, 106 círculos):**
+
+| Grupo | n | mediana de círculos | `offset_min_z` médio | `offset_min_z` mediana | `offset_max_z` médio | `offset_max_z` mediana |
+|---|---|---|---|---|---|---|
+| poucos círculos (≤ mediana) | 510 | 89 | −156,54 | −154,84 | 18,56 | 20,56 |
+| muitos círculos (> mediana) | 484 | 126 | −151,95 | −155,30 | 22,98 | 17,79 |
+
+Diferença de mediana entre os grupos é pequena (~0,5 em `offset_min_z`, ~2,8 em `offset_max_z`,
+e inconsistente em sinal entre média e mediana) — **na população inteira, dividir por poucos vs.
+muitos círculos não separa grupos com offset visivelmente diferente**, ao contrário do que as
+correlações de Pearson por si só sugeririam.
+
+**20 piores casos de cobertura (fora da calibração) x `num_circles_detected`:**
+
+| Split de circles | n | Casos (img_id, nº círculos) |
+|---|---|---|
+| — | — | 132(47) 622(275) 738(11) 790(226) 306(9) 924(2) 777(17) 196(275) 593(7) 321(116) 823(261) 218(24) 73(81) 383(12) 347(23) 719(97) 601(183) 191(231) 202(107) 636(41) |
+
+- População (994 casos): mediana 106, média 107,7, desvio-padrão 32,9.
+- 20 piores: mediana **64,0** (bem abaixo da população), média 102,2 (próxima da população).
+- 12 dos 20 (60%) ficam abaixo da mediana da população.
+- **O mínimo (2 círculos, caso 924) e o máximo (275 círculos, casos 622 e 196) de toda a
+  população de 994 casos aparecem entre os 20 piores** — não só a cauda baixa.
+
+A divergência entre mediana (bem abaixo da população) e média (próxima da população) do grupo dos
+20 piores já indicava que a distribuição deles não é simplesmente deslocada para baixo — o achado
+do min/max confirma: há dois subgrupos nos 20 piores, um com poucos círculos (rastreamento
+incompleto: 924, 593, 306, 738, 383, 777, 347, 218, 636, 132 — todos com <50 círculos) e outro com
+muitos círculos, alguns nos extremos superiores da população inteira (622, 196, 823, 191, 601 —
+todos ≥183 círculos). O eixo `z` é o mais frequente como `worst_axis` em ambos os subgrupos.
+
+**Interpretação**: `num_circles_detected` não tem uma relação linear/monotônica simples e forte
+com o offset de produção na população inteira (divergência Pearson/Spearman, grupos por mediana
+quase idênticos) — mais fraco do que a correlação vista ontem numa amostra de 50 usando `z_min` da
+máscara em vez do offset de produção. Mas o cruzamento com os 20 piores casos de cobertura sugere
+que os **extremos** de `num_circles_detected` (rastreamento muito curto **ou** muito longo — não
+só curto) estão sobrerrepresentados entre as falhas, incluindo o mínimo e o máximo observados em
+toda a população. Isso é consistente com uma relação não-monotônica (pior nos dois extremos,
+melhor no meio) — que explicaria por que correlações lineares/de rank ficam fracas mesmo havendo
+sinal real nos extremos. Não testado formalmente aqui (fora do escopo desta rodada); decisão sobre
+próximos passos não tomada nesta análise.
+
+Reproduzível: `uv run python src/eda/analyze_num_circles_offset_correlation.py`. Dados:
+`output/bounding_box/aorta_anchor_z_diagnosis/{num_circles_offset_detail,
+num_circles_offset_correlations,num_circles_offset_sign_summary,worst_coverage_num_circles}.csv`.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

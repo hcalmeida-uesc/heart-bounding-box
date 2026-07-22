@@ -1,0 +1,3 @@
+grupo,n,num_circles_mediana_grupo,offset_min_z_medio,offset_min_z_mediana,offset_max_z_medio,offset_max_z_mediana
+poucos_circulos (<= mediana),510,89.0,-156.53935615238746,-154.8371807712956,18.564565416240004,20.55590757131641
+muitos_circulos (> mediana),484,126.0,-151.95438999263322,-155.300750673721,22.983626536292427,17.794325415201357
