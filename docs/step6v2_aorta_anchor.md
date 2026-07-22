@@ -803,6 +803,63 @@ Nenhuma correção proposta — só o observado. Reproduzível:
 `output/bounding_box/aorta_anchor_z_diagnosis/img/case_<id>_fov_top_raw.png` (11 casos, incluindo a
 referência `case_1_fov_top_raw.png`). Nenhum artefato de produção alterado.
 
+## Diagnóstico complementar (2026-07-27): tentativa de objetivar "múltiplos vasos ambíguos" — resultado negativo
+
+Tentativa de transformar a observação qualitativa de 2026-07-26 (múltiplas estruturas redondas de
+calibre parecido perto do topo do FOV, em casos-problema vs. referência) numa métrica objetiva, em
+amostra maior (40 casos: os 10 já conhecidos + 30 de comparação com `aorta_voxels` entre 0,7x-1,3x
+da referência, 336651 voxels, amostra estratificada por bloco, sem reprocessar nada para a
+seleção). Método: **só a detecção de círculos** (`detect_aorta_circles`/
+`_detect_circles_in_slice` de `aorta_localization.py`), sem Level-Set, aplicada nas 15 fatias mais
+próximas do topo do FOV — muito mais barato que os diagnósticos anteriores (~5-10s/caso, sem
+Level-Set, vs. 40-220s/caso). Script: `src/eda/measure_ambiguous_circle_candidates.py`.
+
+**Métrica**: em cada fatia analisada, roda `detect_aorta_circles` real (mesma config de produção,
+janela de 15 fatias) para obter "o círculo principal" rastreado; separadamente, roda
+`_detect_circles_in_slice` (sem restrição de ROI, `total_num_peaks_initial`=15 picos) na própria
+fatia e nas duas adjacentes para obter todos os candidatos Hough. Um candidato conta como
+"ambíguo" se não é o próprio círculo principal, tem raio dentro de ±20% do raio principal, e centro
+a menos de 2x o raio médio de distância.
+
+**Resultado — a métrica, como especificada, NÃO confirma a diferença vista visualmente**:
+
+| grupo | n casos | média | mediana | desvio-padrão | mín | máx |
+|---|---|---|---|---|---|---|
+| problema (10) | 10 | 290,9 | 295,0 | 121,8 | 1 | 419 |
+| normal (30) | 30 | 332,4 | 346,0 | 85,8 | 12 | 513 |
+
+As distribuições **se sobrepõem quase inteiramente** (problema: 238–419 excluindo 1 outlier;
+normal: 191–513 excluindo 1 outlier) — a mediana do grupo "normal" é até um pouco **maior** que a do
+grupo "problema", o oposto do que a hipótese visual sugeria.
+
+**Causa provável — efeito-teto nos parâmetros da métrica, não ausência de sinal real**: com
+`total_num_peaks_initial`=15 picos por fatia e faixa de raio de Hough de só 18–30px (12px de
+amplitude total, config de produção), uma tolerância de raio de ±20% sobre um raio típico de
+~20–25px (±4–5px) já cobre boa parte de toda a faixa de busca permitida — e um limiar de distância
+de 2x o raio médio (~40–50px) é uma fração grande de uma fatia de 256×256. Nessas condições, a
+maioria dos picos Hough detectados em qualquer fatia (de qualquer caso, problemático ou não)
+trivialmente satisfaz os dois critérios simultaneamente — o método super-conta candidatos
+"ambíguos" quase universalmente, mascarando qualquer diferença real entre os grupos.
+
+**Duas exceções informativas, mas por razões diferentes**: `img_id=924` (grupo problema, só 1
+ambíguo) tem apenas **2 círculos reais rastreados** de 15 fatias (rastreamento falhou cedo — poucos
+candidatos principais para comparar, não indica ausência de ambiguidade na imagem). `img_id=190`
+(grupo normal, 12 ambíguos) rastreou as 15 fatias **normalmente** e ainda assim teve poucos
+candidatos ambíguos — esse sim é um caso genuinamente de baixa ambiguidade dentro da amostra,
+mas é o único.
+
+**Conclusão**: com os parâmetros exatamente como especificados no pedido, a métrica objetiva **não
+confirma** a diferença observada visualmente em 2026-07-26 — mas a razão mais provável é uma
+limitação do desenho da métrica (tolerâncias largas demais relativas à faixa de busca do Hough
+configurada em produção), não uma refutação da hipótese original. Recalibrar os limiares (ex.:
+tolerância de raio menor, ou normalizar pela faixa de busca em vez de por porcentagem fixa) poderia
+mudar o resultado, mas isso seria uma escolha de método nova, não coberta por este diagnóstico.
+Nenhuma correção proposta.
+
+Reproduzível: `uv run python src/eda/measure_ambiguous_circle_candidates.py`. Dados:
+`output/bounding_box/aorta_anchor_z_diagnosis/ambiguous_circle_candidates_summary.csv`. Nenhum
+artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
