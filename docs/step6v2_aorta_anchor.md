@@ -612,6 +612,68 @@ worst_z_excess_cases}.csv`. Nenhum artefato de produção alterado (não reproce
 `calibration.json` nem os CSVs de cobertura). Interpretação do padrão em U (o que causa a faixa
 central ser "boa") e decisão sobre próximos passos não tomadas aqui, propositalmente.
 
+### Passo 1 (extra): os casos que definiram a calibração são outliers de `num_circles_detected`?
+
+Os 5 `img_id` citados na seção "Achado bloqueante novo" (`argmin/argmax_case_per_axis` do
+`calibration_imagecas_splits_train90.json`) contra a distribuição de `num_circles_detected` nos
+994 casos (mediana 106, média 107,7, std 32,9):
+
+| img_id | eixo definido | `num_circles_detected` | percentil (994 casos) | faixa (cortes do passo anterior: Q1 ≤ 83, Q5 ≥ 131) |
+|---|---|---|---|---|
+| 934 | y_min | 162 | 95,9% | quintil 5 |
+| 428 | y_max / x_min | 172 | 97,2% | quintil 5 |
+| 90 | x_max | 139 | 86,7% | quintil 5 |
+| 23 | z_min | 28 | 1,7% | quintil 1 |
+| 44 | z_max | 186 | 97,9% | quintil 5 |
+
+**Os 5 caem todos numa faixa extrema (quintil 1 ou 5) — nenhum no meio da distribuição.** Reforça
+a leitura do padrão em U: os casos que forçaram os extremos do bbox calibrado (e portanto o
+`bbox_extent_reduced` de 240×207×313, ver "Achado bloqueante novo") parecem ser, em boa parte,
+outliers de rastreamento Hough+Level Set — não necessariamente pacientes com anatomia coronária
+mais extrema de verdade. Não implica causalidade nem propõe correção; é só uma correlação a mais
+apontando na mesma direção dos passos anteriores.
+
+### Passo 2 (extra): inspeção visual dos 5 piores casos de excesso em z
+
+Reprocessados só estes 5 casos (`load_and_preprocess_image` + `segment_aorta` — os únicos passos
+caros; label e demais campos vêm de `all_cases.csv`/coverage, não recomputados). Script:
+`src/eda/inspect_worst_z_excess_cases.py`. Cortes sagital e coronal (fixados no centróide da
+máscara), com a máscara da aorta e o label coronário sobrepostos e as linhas de `label_z_min/max` e
+do bbox calibrado em z marcadas, salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/img/case_<id>_z_inspection.png`.
+
+| img_id | `num_circles_detected` | hipótese esperada | mask z (min–max) | extensão (fatias) | label z (min–max) | observado |
+|---|---|---|---|---|---|---|
+| 622 | 275 | over-tracking | 0 – 274 | 274 | 26 – 236 | over-tracking, mas como **leak** (ver abaixo) |
+| 196 | 275 | over-tracking | 0 – 274 | 274 | 19 – 218 | over-tracking, mesmo padrão de leak |
+| 790 | 226 | checar qual padrão | 39 – 274 | 235 | 29 – 265 | over-tracking / leak, não under-tracking |
+| 924 | 2 | under-tracking | 263 – 274 | 11 | 17 – 264 | under-tracking confirmado |
+| 777 | 17 | under-tracking | 258 – 274 | 16 | 16 – 201 | under-tracking confirmado |
+
+**Under-tracking (924, 777) confirmado visualmente, e mais severo do que o esperado**: em ambos, a
+máscara é um fragmento minúsculo (11–16 fatias) preso bem no **topo do volume** (fatias 258–274, a
+borda superior do campo de visão), com uma lacuna enorme até o início do label coronário (924:
+label começa em z=17, mask só existe a partir de z=263 — quase 250 fatias de distância). Não
+parece "parou um pouco cedo": o rastreamento praticamente não encontrou nada além de um resquício
+no topo da imagem.
+
+**Over-tracking (622, 196, 790) confirmado, mas com uma correção qualitativa ao esperado**: nos 3
+casos a máscara não é um tubo aórtico simplesmente mais longo que o normal — é um **blob único e
+contíguo, muito maior e com formato irregular**, que na sobreposição visual parece incluir bem mais
+tecido do que a aorta (em 622/196 o blob cobre quase toda a extensão vertical do corte, com contorno
+que acompanha o que parece ser a silhueta do coração; em 790 tem um formato arredondado grande
+condizente com uma câmara cardíaca, não uma aorta tubular). Isto é uma leitura visual qualitativa,
+não confirmada contra nenhuma referência anatômica formal além do label coronário disponível — mas
+sugere que a causa provável não é "o algoritmo seguiu a aorta longe demais no eixo z", e sim um
+**vazamento de segmentação (level-set) para uma estrutura vizinha muito maior**, que incidentalmente
+também é muito mais alto/baixo em z do que uma aorta ascendente real.
+
+Nenhuma correção proposta nesta etapa, conforme solicitado — só o que foi observado.
+
+Reproduzível: `uv run python src/eda/inspect_worst_z_excess_cases.py`. Dados/imagens:
+`output/bounding_box/aorta_anchor_z_diagnosis/worst_z_excess_visual_inspection_summary.csv` e
+`output/bounding_box/aorta_anchor_z_diagnosis/img/*.png`. Nenhum artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

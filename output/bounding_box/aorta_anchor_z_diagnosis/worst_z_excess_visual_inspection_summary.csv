@@ -1,0 +1,6 @@
+img_id,block,mask_z_min,mask_z_max,mask_z_extent,label_z_min,label_z_max,image_path,num_circles_detected,hipotese_esperada
+622,601-800,0.0,274.0,274.0,26.0,236.0,output\bounding_box\aorta_anchor_z_diagnosis\img\case_622_z_inspection.png,275,"over-tracking esperado (quintil 5, 275 circulos = teto da populacao)"
+790,601-800,39.0,274.0,235.0,29.0,265.0,output\bounding_box\aorta_anchor_z_diagnosis\img\case_790_z_inspection.png,226,"checar qual padrao se aplica (226 circulos, quintil 5 mas mais perto do meio)"
+924,801-1000,263.0,274.0,11.0,17.0,264.0,output\bounding_box\aorta_anchor_z_diagnosis\img\case_924_z_inspection.png,2,"under-tracking esperado (quintil 1, 2 circulos = piso da populacao)"
+777,601-800,258.0,274.0,16.0,16.0,201.0,output\bounding_box\aorta_anchor_z_diagnosis\img\case_777_z_inspection.png,17,"under-tracking esperado (quintil 1, 17 circulos)"
+196,1-200,0.0,274.0,274.0,19.0,218.0,output\bounding_box\aorta_anchor_z_diagnosis\img\case_196_z_inspection.png,275,"over-tracking esperado (quintil 5, 275 circulos = teto da populacao)"
