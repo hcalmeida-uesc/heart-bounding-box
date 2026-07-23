@@ -30,6 +30,7 @@ _SYMBOL_TO_MODULE = {
     "run_aorta_anchor_batch": "aorta_anchor",
     "calibrate_bbox_offsets": "aorta_anchor",
     "calibrate_bbox_size_joint": "aorta_anchor",
+    "compute_per_case_envelope_size": "aorta_anchor",
     "validate_coverage": "aorta_anchor",
 }
 

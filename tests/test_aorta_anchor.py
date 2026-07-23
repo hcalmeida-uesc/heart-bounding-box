@@ -11,6 +11,7 @@ from utils.segmentation.aorta_anchor import (
     AORTA_ANCHOR_RECORD_COLUMNS,
     calibrate_bbox_offsets,
     calibrate_bbox_size_joint,
+    compute_per_case_envelope_size,
     process_block,
     process_case_for_aorta_anchor,
     validate_coverage,
@@ -346,3 +347,132 @@ def test_validate_coverage_marks_case_inside_calibrated_bbox_as_covered():
     result = validate_coverage(held_out, calibration)
 
     assert bool(result.iloc[0]["covered"]) is True
+
+
+def _envelope_records():
+    return pd.DataFrame(
+        [
+            {
+                "img_id": 1,
+                "anchor_y": 100.0,
+                "anchor_x": 100.0,
+                "anchor_z": 100.0,
+                "label_y_min": 90,
+                "label_y_max": 105,
+                "label_x_min": 95,
+                "label_x_max": 110,
+                "label_z_min": 40,
+                "label_z_max": 102,
+            },
+            {
+                "img_id": 2,
+                "anchor_y": 100.0,
+                "anchor_x": 100.0,
+                "anchor_z": 100.0,
+                "label_y_min": 85,
+                "label_y_max": 112,
+                "label_x_min": 98,
+                "label_x_max": 108,
+                "label_z_min": 30,
+                "label_z_max": 98,
+            },
+        ]
+    )
+
+
+def test_compute_per_case_envelope_size_matches_hand_calculation():
+    result = compute_per_case_envelope_size(_envelope_records(), downscale_factors=(2, 2, 1))
+
+    assert list(result["img_id"]) == [1, 2]
+
+    row1 = result.iloc[0]
+    # caso 1: y=[90,105] extent=15; x=[95,110] extent=15; z=[40,102] extent=62 (anchor=100 em tudo)
+    assert row1["offset_min_y"] == pytest.approx(-10.0)
+    assert row1["offset_max_y"] == pytest.approx(5.0)
+    assert row1["envelope_extent_y"] == pytest.approx(15.0)
+    assert row1["offset_min_x"] == pytest.approx(-5.0)
+    assert row1["offset_max_x"] == pytest.approx(10.0)
+    assert row1["envelope_extent_x"] == pytest.approx(15.0)
+    assert row1["offset_min_z"] == pytest.approx(-60.0)
+    assert row1["offset_max_z"] == pytest.approx(2.0)
+    assert row1["envelope_extent_z"] == pytest.approx(62.0)
+
+    row2 = result.iloc[1]
+    # caso 2: y=[85,112] extent=27; x=[98,108] extent=10; z=[30,98] extent=68
+    assert row2["offset_min_y"] == pytest.approx(-15.0)
+    assert row2["offset_max_y"] == pytest.approx(12.0)
+    assert row2["envelope_extent_y"] == pytest.approx(27.0)
+    assert row2["envelope_extent_x"] == pytest.approx(10.0)
+    assert row2["envelope_extent_z"] == pytest.approx(68.0)
+
+
+def test_compute_per_case_envelope_size_sign_consistency_when_label_encloses_anchor():
+    # Caso típico: a âncora (100) cai dentro do intervalo do label em todos os eixos -> offset_min
+    # negativo, offset_max positivo. (Note: isso não vale em geral -- ver o caso 2 de
+    # _envelope_records() no teste de escala, onde o label em z fica inteiramente abaixo da
+    # âncora e offset_max_z sai negativo; esse teste cobre especificamente o caso "engloba".)
+    enclosing_records = pd.DataFrame(
+        [
+            {
+                "img_id": 1,
+                "anchor_y": 100.0,
+                "anchor_x": 100.0,
+                "anchor_z": 100.0,
+                "label_y_min": 90,
+                "label_y_max": 105,
+                "label_x_min": 95,
+                "label_x_max": 110,
+                "label_z_min": 40,
+                "label_z_max": 102,
+            }
+        ]
+    )
+
+    result = compute_per_case_envelope_size(enclosing_records, downscale_factors=(2, 2, 1))
+
+    for axis in ("y", "x", "z"):
+        assert (result[f"offset_min_{axis}"] < 0).all()
+        assert (result[f"offset_max_{axis}"] > 0).all()
+        # extent é sempre a diferença positiva entre os dois, nunca negativo.
+        assert (result[f"envelope_extent_{axis}"] > 0).all()
+
+
+def test_compute_per_case_envelope_size_allows_offset_max_negative_when_label_is_below_anchor():
+    # Achado real do projeto (2026-07): a âncora da aorta costuma ficar acima de toda a árvore
+    # coronária em z -- offset_max_z pode ser negativo (label inteiro abaixo da âncora). A função
+    # não deve mascarar isso; envelope_extent continua positivo (é sempre max - min).
+    result = compute_per_case_envelope_size(_envelope_records(), downscale_factors=(2, 2, 1))
+
+    row2 = result.iloc[1]
+    assert row2["offset_max_z"] == pytest.approx(-2.0)
+    assert row2["offset_min_z"] == pytest.approx(-70.0)
+    assert row2["envelope_extent_z"] == pytest.approx(68.0)
+
+
+def test_compute_per_case_envelope_size_scales_full_resolution_per_axis():
+    # Fatores diferentes por eixo (2, 3, 1) para expor um bug de aplicar o mesmo fator a todos.
+    result = compute_per_case_envelope_size(_envelope_records(), downscale_factors=(2, 3, 1))
+
+    row1 = result.iloc[0]
+    assert row1["envelope_extent_full_res_y"] == pytest.approx(row1["envelope_extent_y"] * 2)
+    assert row1["envelope_extent_full_res_x"] == pytest.approx(row1["envelope_extent_x"] * 3)
+    # fator 1 em z: o downscale preserva o eixo axial, full_res deve ser igual ao reduzido.
+    assert row1["envelope_extent_full_res_z"] == pytest.approx(row1["envelope_extent_z"])
+    assert row1["envelope_extent_full_res_z"] == pytest.approx(62.0)
+
+
+def test_compute_per_case_envelope_size_raises_on_missing_column():
+    records_df = _envelope_records().drop(columns=["label_z_max"])
+
+    with pytest.raises(ValueError, match="label_z_max"):
+        compute_per_case_envelope_size(records_df, downscale_factors=(2, 2, 1))
+
+
+def test_compute_per_case_envelope_size_raises_listing_all_missing_columns():
+    records_df = _envelope_records().drop(columns=["anchor_x", "label_y_min"])
+
+    with pytest.raises(ValueError) as exc_info:
+        compute_per_case_envelope_size(records_df, downscale_factors=(2, 2, 1))
+
+    assert "anchor_x" in str(exc_info.value)
+    assert "label_y_min" in str(exc_info.value)
