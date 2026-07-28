@@ -301,6 +301,62 @@ def calibrate_bbox_offsets(
     }
 
 
+def compute_per_case_envelope_size(
+    records_df: pd.DataFrame, downscale_factors: tuple[float, float, float]
+) -> pd.DataFrame:
+    """Calcula, por caso e por eixo, o tamanho de envelope que aquele caso exigiria individualmente.
+
+    Mesmo cálculo de base que :func:`calibrate_bbox_offsets` já faz internamente por eixo
+    (``offset = label - anchor``), mas aqui expondo o resultado **por caso**, não agregado
+    (min/max) entre casos — preparação para os critérios de exclusão da próxima etapa (tarefa
+    2/7). Não reprocessa nada: opera só sobre colunas já presentes em ``records_df``
+    (tipicamente ``all_cases.csv``), filtrado internamente para ``status="ok"``.
+
+    Para cada eixo, retorna ``offset_min``/``offset_max`` (``label_min/max - anchor``, mesma
+    convenção de sinal de :func:`calibrate_bbox_offsets`), ``envelope_extent`` (``offset_max -
+    offset_min``, resolução reduzida) e ``envelope_extent_full_res`` (escalado por
+    ``downscale_factors``, fator 1 no eixo z).
+    """
+    required_columns = {
+        "img_id",
+        "status",
+        "anchor_y",
+        "anchor_x",
+        "anchor_z",
+        "label_y_min",
+        "label_y_max",
+        "label_x_min",
+        "label_x_max",
+        "label_z_min",
+        "label_z_max",
+    }
+    missing = required_columns - set(records_df.columns)
+    if missing:
+        raise ValueError(
+            f"records_df não contém as colunas esperadas: {sorted(missing)}"
+        )
+
+    ok = records_df[records_df["status"] == "ok"]
+    if ok.empty:
+        raise ValueError(
+            "Nenhum caso com status='ok' em records_df; não é possível calcular o envelope."
+        )
+
+    result = ok[["img_id"]].copy()
+    for axis, factor in zip(("y", "x", "z"), downscale_factors):
+        anchor_col = ok[f"anchor_{axis}"]
+        offset_min = ok[f"label_{axis}_min"] - anchor_col
+        offset_max = ok[f"label_{axis}_max"] - anchor_col
+        envelope_extent = offset_max - offset_min
+
+        result[f"offset_min_{axis}"] = offset_min.astype(float)
+        result[f"offset_max_{axis}"] = offset_max.astype(float)
+        result[f"envelope_extent_{axis}"] = envelope_extent.astype(float)
+        result[f"envelope_extent_full_res_{axis}"] = (envelope_extent * factor).astype(float)
+
+    return result.reset_index(drop=True)
+
+
 def calibrate_bbox_size_joint(
     records_df: pd.DataFrame,
     downscale_factors: tuple[float, float, float],
@@ -410,5 +466,6 @@ __all__ = [
     "run_aorta_anchor_batch",
     "calibrate_bbox_offsets",
     "calibrate_bbox_size_joint",
+    "compute_per_case_envelope_size",
     "validate_coverage",
 ]

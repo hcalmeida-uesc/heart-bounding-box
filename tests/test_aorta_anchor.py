@@ -11,6 +11,7 @@ from utils.segmentation.aorta_anchor import (
     AORTA_ANCHOR_RECORD_COLUMNS,
     calibrate_bbox_offsets,
     calibrate_bbox_size_joint,
+    compute_per_case_envelope_size,
     process_block,
     process_case_for_aorta_anchor,
     validate_coverage,
@@ -189,6 +190,99 @@ def test_calibrate_bbox_offsets_raises_when_no_ok_cases():
 
     with pytest.raises(ValueError, match="Nenhum caso"):
         calibrate_bbox_offsets(records_df, downscale_factors=(2, 2, 1))
+
+
+def test_compute_per_case_envelope_size_matches_manual_calculation():
+    envelope = compute_per_case_envelope_size(_calibration_records(), downscale_factors=(2, 2, 1))
+
+    # Só os 2 casos com status="ok" (o caso 3, status="error", é descartado).
+    assert list(envelope["img_id"]) == [1, 2]
+
+    case1 = envelope.iloc[0]
+    # y: 90-100=-10 ; 105-100=5 ; extent=15 ; full_res=15*2=30
+    assert case1["offset_min_y"] == pytest.approx(-10.0)
+    assert case1["offset_max_y"] == pytest.approx(5.0)
+    assert case1["envelope_extent_y"] == pytest.approx(15.0)
+    assert case1["envelope_extent_full_res_y"] == pytest.approx(30.0)
+    # x: 95-100=-5 ; 110-100=10 ; extent=15 ; full_res=15*2=30
+    assert case1["offset_min_x"] == pytest.approx(-5.0)
+    assert case1["offset_max_x"] == pytest.approx(10.0)
+    assert case1["envelope_extent_x"] == pytest.approx(15.0)
+    assert case1["envelope_extent_full_res_x"] == pytest.approx(30.0)
+    # z: 40-100=-60 ; 102-100=2 ; extent=62 ; full_res=62*1=62 (fator 1 em z)
+    assert case1["offset_min_z"] == pytest.approx(-60.0)
+    assert case1["offset_max_z"] == pytest.approx(2.0)
+    assert case1["envelope_extent_z"] == pytest.approx(62.0)
+    assert case1["envelope_extent_full_res_z"] == pytest.approx(62.0)
+
+    case2 = envelope.iloc[1]
+    # y: 85-100=-15 ; 112-100=12 ; extent=27 ; full_res=27*2=54
+    assert case2["offset_min_y"] == pytest.approx(-15.0)
+    assert case2["offset_max_y"] == pytest.approx(12.0)
+    assert case2["envelope_extent_y"] == pytest.approx(27.0)
+    assert case2["envelope_extent_full_res_y"] == pytest.approx(54.0)
+    # z: 30-100=-70 ; 98-100=-2 ; extent=68 ; full_res=68*1=68
+    assert case2["offset_min_z"] == pytest.approx(-70.0)
+    assert case2["offset_max_z"] == pytest.approx(-2.0)
+    assert case2["envelope_extent_z"] == pytest.approx(68.0)
+    assert case2["envelope_extent_full_res_z"] == pytest.approx(68.0)
+
+
+def test_compute_per_case_envelope_size_sign_convention_when_label_encloses_anchor():
+    # Caso típico: a âncora fica dentro do label, então offset_min deve ser negativo
+    # (label_min < anchor) e offset_max positivo (label_max > anchor) em y e x.
+    envelope = compute_per_case_envelope_size(_calibration_records(), downscale_factors=(2, 2, 1))
+
+    for axis in ("y", "x"):
+        assert (envelope[f"offset_min_{axis}"] < 0).all()
+        assert (envelope[f"offset_max_{axis}"] > 0).all()
+    # z: o label do caso 2 fica inteiramente abaixo da âncora (30 e 98, ambos < 100) —
+    # confirma que a convenção de sinal não assume que a âncora está sempre dentro do label.
+    assert envelope.iloc[1]["offset_min_z"] < 0
+    assert envelope.iloc[1]["offset_max_z"] < 0
+
+
+def test_compute_per_case_envelope_size_scales_full_resolution_per_axis():
+    downscale_factors = (2.0, 3.0, 1.0)
+    envelope = compute_per_case_envelope_size(
+        _calibration_records(), downscale_factors=downscale_factors
+    )
+
+    for axis, factor in zip(("y", "x", "z"), downscale_factors):
+        expected = envelope[f"envelope_extent_{axis}"] * factor
+        assert envelope[f"envelope_extent_full_res_{axis}"].tolist() == pytest.approx(
+            expected.tolist()
+        )
+
+
+def test_compute_per_case_envelope_size_raises_on_missing_column():
+    records_df = _calibration_records().drop(columns=["label_z_max"])
+
+    with pytest.raises(ValueError, match="label_z_max"):
+        compute_per_case_envelope_size(records_df, downscale_factors=(2, 2, 1))
+
+
+def test_compute_per_case_envelope_size_raises_when_no_ok_cases():
+    records_df = pd.DataFrame(
+        [
+            {
+                "img_id": 1,
+                "status": "error",
+                "anchor_y": None,
+                "anchor_x": None,
+                "anchor_z": None,
+                "label_y_min": None,
+                "label_y_max": None,
+                "label_x_min": None,
+                "label_x_max": None,
+                "label_z_min": None,
+                "label_z_max": None,
+            }
+        ]
+    )
+
+    with pytest.raises(ValueError, match="Nenhum caso"):
+        compute_per_case_envelope_size(records_df, downscale_factors=(2, 2, 1))
 
 
 def test_validate_coverage_flags_case_outside_calibrated_bbox():
