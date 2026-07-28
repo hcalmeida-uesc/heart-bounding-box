@@ -1230,6 +1230,77 @@ sobre `all_cases.csv` + `config/imagecas_splits_train90.json`, sem reprocessar n
 em `output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff.csv`. Nenhum
 artefato de produção alterado.
 
+### Correção (2026-07-28/29): perda real (voxel a voxel) vs. proxy geométrico — comparação lado a lado
+
+A leitura acima (seção anterior) usava só o **proxy geométrico** (árvore = bloco retangular
+preenchendo sua caixa delimitadora). A pedido, releu-se a máscara real do label coronário
+(reduzida à mesma resolução de `label_{y,x,z}_min/max`, via `downscale_image_ndi(order=0)`) para
+os 906 casos de val+test, e recalculou-se a perda real: voxels do label que caem fora do bbox
+dividido pelo total de voxels do label daquele caso — **não mais aproximação de caixa**. Custo:
+~906 leituras de NIfTI + downscale, ~1.730s (~29 min) de processamento, cacheado em
+`output/bounding_box/aorta_anchor_z_diagnosis/label_voxel_cache_valtest.pkl` para não precisar
+reprocessar de novo.
+
+**Por que os dois podem divergir**: o proxy assume que a árvore coronária ocupa uniformemente
+toda a sua caixa delimitadora — mas é uma estrutura fina e ramificada, tipicamente mais concentrada
+perto do centro/tronco principal do que nos cantos/bordas da caixa. Cortar uma fatia da caixa
+delimitadora pode remover **pouco ou nenhum voxel real** da árvore (se o corte só afeta uma região
+onde a árvore não passa) ou remover **uma fração desproporcionalmente grande** (se o corte
+atravessa um ramo principal) — o proxy não distingue os dois casos, só mede geometria da caixa.
+
+**(a) Sem filtro de caso** — `proxy` = já reportado acima; `real` = voxel a voxel, 906 casos:
+
+| offset_percentile | Rv médio | perda mediana (proxy / real) | perda média (proxy / real) | perda=0 (proxy / real) | perda <5% (proxy / real) | perda 5-20% (proxy / real) | perda ≥20% (proxy / real) |
+|---|---|---|---|---|---|---|---|
+| 100% | 6,70% | 0,00% / 0,00% | 0,47% / 0,39% | 862 / 862 | 23 / 26 | 15 / 12 | 6 / 6 |
+| 97,5% | 33,41% | 0,00% / 0,00% | 1,29% / 1,17% | 765 / 765 | 71 / 87 | 54 / 39 | 16 / 15 |
+| 95% | 44,90% | 0,00% / 0,00% | 2,16% / 1,97% | 688 / 688 | 113 / 141 | 75 / 46 | 30 / 31 |
+| 90% | 54,33% | 0,00% / 0,00% | 3,83% / 3,49% | 540 / 540 | 181 / 228 | 137 / 88 | 48 / **50** |
+| 85% | 59,73% | 0,83% / 0,18% | 5,59% / 5,19% | 414 / 414 | 211 / 276 | 209 / 135 | 72 / **81** |
+| 80% | 63,86% | 3,14% / 1,39% | 7,51% / 7,01% | 303 / 303 | 230 / 316 | 274 / 180 | 99 / **107** |
+
+**(b) Com filtro prévio pelo critério C a 5%** (N=850):
+
+| offset_percentile | Rv médio | perda mediana (proxy / real) | perda média (proxy / real) | perda=0 (proxy / real) | perda <5% (proxy / real) | perda 5-20% (proxy / real) | perda ≥20% (proxy / real) |
+|---|---|---|---|---|---|---|---|
+| 100% | 16,11% | 0,00% / 0,00% | 0,25% / 0,24% | 821 / 821 | 19 / 18 | 7 / 8 | 3 / 3 |
+| 97,5% | 41,96% | 0,00% / 0,00% | 1,02% / 0,95% | 719 / 719 | 74 / 91 | 48 / 30 | 9 / 10 |
+| 95% | 46,90% | 0,00% / 0,00% | 1,40% / 1,24% | 657 / 657 | 112 / 143 | 72 / 37 | 9 / **13** |
+| 90% | 55,62% | 0,00% / 0,00% | 3,08% / 2,81% | 500 / 500 | 188 / 225 | 135 / 96 | 27 / 29 |
+| 85% | 59,98% | 0,55% / 0,10% | 4,52% / 4,16% | 399 / 399 | 202 / 270 | 206 / 123 | 43 / **58** |
+| 80% | 64,12% | 2,83% / 1,30% | 6,50% / 6,13% | 281 / 281 | 234 / 308 | 260 / 178 | 75 / **83** |
+
+**Leitura — o proxy não erra numa direção só, e a correção muda a conclusão da seção anterior:**
+
+1. **`perda=0` é idêntico entre proxy e real em toda a grade (862=862, 765=765, ..., 821=821...)**
+   — não é coincidência: quando a caixa delimitadora do label cabe inteira dentro do bbox
+   calibrado, todo voxel real também cabe, então os dois métodos concordam **estruturalmente**
+   nesse caso. Essa parte da leitura anterior (cobertura zero-perda igual à cobertura binária em
+   100%, 95,14%) continua válida.
+2. **Na faixa intermediária (perda `<5%` e `5-20%`), o proxy superestima a perda**: real tem
+   sistematicamente mais casos em `<5%` e menos em `5-20%` do que o proxy (ex.: 90% sem filtro:
+   proxy tem 181/137 nas duas faixas, real tem 228/88 — bem mais casos migram para a faixa "quase
+   sem perda"). Confirma a hipótese: a árvore fina não preenche a caixa, então um corte parcial da
+   caixa tende a perder menos voxels reais do que a geometria sozinha sugere.
+3. **Mas na cauda (`perda ≥20%`), a partir de ~90% de percentil, o real é igual ou PIOR que o
+   proxy** (destacado em negrito acima) — na grade sem filtro: 90%→+2 casos reais a mais, 85%→+9,
+   80%→+8; na grade filtrada: 85%→+15 casos reais a mais (58 vs. 43, a maior divergência de toda a
+   tabela). Ou seja, **o proxy subestima o número de casos com perda grave nos cortes mais
+   agressivos** — o oposto do que a leitura anterior (só com o proxy) sugeria para a cauda.
+4. **Conclusão revisada**: a leitura da seção anterior ("parece haver um meio-termo bem mais
+   favorável do que a métrica binária sugeria") **se sustenta para o grosso dos casos** — a maioria
+   ainda tem perda zero ou pequena, consistente e às vezes até melhor que o proxy indicava. Mas
+   **não se sustenta igualmente para a cauda de casos graves**: em cortes mais agressivos (85-90% e
+   abaixo), há mais casos reais perdendo ≥20% da árvore do que o proxy indicava — o meio-termo é
+   real para a maior parte da população, mas o risco de perda grave numa fração pequena de casos é
+   **subestimado**, não superestimado, pelo proxy geométrico.
+
+Reproduzível: script ad-hoc não versionado, reaproveita `evaluate_percentile_bbox_tradeoff` (Rv/
+bbox, idênticos ao proxy) + leitura/downscale do label real (cache em `label_voxel_cache_valtest.
+pkl`) para a perda exata. Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff_real_vs_proxy.csv`.
+Nenhum artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
