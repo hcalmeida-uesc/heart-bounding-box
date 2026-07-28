@@ -14,6 +14,7 @@ from utils.segmentation.aorta_anchor import (
     compute_per_case_envelope_size,
     process_block,
     process_case_for_aorta_anchor,
+    select_cases_by_aorta_volume_percentile,
     select_cases_by_circle_count_percentile,
     select_cases_by_envelope_size_percentile,
     validate_coverage,
@@ -479,6 +480,89 @@ def test_select_cases_by_envelope_size_percentile_raises_on_missing_column():
 
     with pytest.raises(ValueError, match="envelope_extent_x"):
         select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct=5.0, axis="x")
+
+
+def _aorta_volume_records(values):
+    return pd.DataFrame(
+        [
+            {"img_id": i + 1, "status": "ok", "aorta_voxels": v}
+            for i, v in enumerate(values)
+        ]
+    )
+
+
+def test_select_cases_by_aorta_volume_percentile_excludes_known_extremes_at_20_pct():
+    records_df = _aorta_volume_records([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+
+    excluded_df, filtered_df = select_cases_by_aorta_volume_percentile(
+        records_df, exclusion_pct=20.0
+    )
+
+    assert list(excluded_df["img_id"]) == [1, 10]
+    by_img_id = excluded_df.set_index("img_id")
+    assert by_img_id.loc[1, "side"] == "baixo"
+    assert by_img_id.loc[1, "aorta_voxels"] == 10
+    assert by_img_id.loc[10, "side"] == "alto"
+    assert by_img_id.loc[10, "aorta_voxels"] == 100
+    assert len(filtered_df) == 8
+    assert set(filtered_df["img_id"]) == {2, 3, 4, 5, 6, 7, 8, 9}
+
+
+def test_select_cases_by_aorta_volume_percentile_zero_excludes_nothing():
+    records_df = _aorta_volume_records([10, 20, 30, 40, 50, 60, 70, 80, 90, 100])
+
+    excluded_df, filtered_df = select_cases_by_aorta_volume_percentile(
+        records_df, exclusion_pct=0.0
+    )
+
+    assert excluded_df.empty
+    assert len(filtered_df) == 10
+
+
+def test_select_cases_by_aorta_volume_percentile_fractional_splits_tails_correctly():
+    values = list(range(1, 101))
+    records_df = _aorta_volume_records(values)
+
+    excluded_df, filtered_df = select_cases_by_aorta_volume_percentile(
+        records_df, exclusion_pct=5.0
+    )
+
+    low_threshold = np.percentile(values, 2.5)
+    high_threshold = np.percentile(values, 97.5)
+    expected_low = [v for v in values if v < low_threshold]
+    expected_high = [v for v in values if v > high_threshold]
+
+    assert sorted(
+        excluded_df.loc[excluded_df["side"] == "baixo", "aorta_voxels"]
+    ) == sorted(expected_low)
+    assert sorted(
+        excluded_df.loc[excluded_df["side"] == "alto", "aorta_voxels"]
+    ) == sorted(expected_high)
+    assert len(filtered_df) == 100 - len(expected_low) - len(expected_high)
+
+
+def test_select_cases_by_aorta_volume_percentile_raises_on_invalid_pct():
+    records_df = _aorta_volume_records([10, 20, 30])
+
+    with pytest.raises(ValueError, match="exclusion_pct"):
+        select_cases_by_aorta_volume_percentile(records_df, exclusion_pct=-1)
+
+    with pytest.raises(ValueError, match="exclusion_pct"):
+        select_cases_by_aorta_volume_percentile(records_df, exclusion_pct=100)
+
+
+def test_select_cases_by_aorta_volume_percentile_raises_on_missing_column():
+    records_df = pd.DataFrame([{"img_id": 1, "status": "ok"}])
+
+    with pytest.raises(ValueError, match="aorta_voxels"):
+        select_cases_by_aorta_volume_percentile(records_df, exclusion_pct=5.0)
+
+
+def test_select_cases_by_aorta_volume_percentile_raises_when_no_ok_cases():
+    records_df = pd.DataFrame([{"img_id": 1, "status": "error", "aorta_voxels": 500}])
+
+    with pytest.raises(ValueError, match="Nenhum caso"):
+        select_cases_by_aorta_volume_percentile(records_df, exclusion_pct=5.0)
 
 
 def test_validate_coverage_flags_case_outside_calibrated_bbox():

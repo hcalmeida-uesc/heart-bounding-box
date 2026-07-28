@@ -860,6 +860,140 @@ Reproduzível: `uv run python src/eda/measure_ambiguous_circle_candidates.py`. D
 `output/bounding_box/aorta_anchor_z_diagnosis/ambiguous_circle_candidates_summary.csv`. Nenhum
 artefato de produção alterado.
 
+## Divisão em 7 tarefas com o orientador (reunião 2026-07-22): critérios de exclusão de casos problemáticos
+
+Depois dos diagnósticos acima (2026-07-22 a 07-27, nenhuma correção proposta), a reunião com o
+orientador de 2026-07-22 dividiu o próximo passo em 7 tarefas: calcular o tamanho de envelope por
+caso (tarefa 1), testar critérios de exclusão candidatos isoladamente (tarefas 2, 3, 3b — inserida
+depois da 3), comparar/decidir entre eles (tarefa 5) e, a partir da decisão, recalibrar e validar
+(tarefas 4, 6, 7 — conteúdo exato ainda não recebido nesta sessão). Todo o código destas tarefas
+está em `src/utils/segmentation/aorta_anchor.py`; testes em `tests/test_aorta_anchor.py`.
+
+### Tarefa 1/7 — tamanho de envelope por caso (`compute_per_case_envelope_size`)
+
+`compute_per_case_envelope_size(records_df, downscale_factors)`
+(`src/utils/segmentation/aorta_anchor.py:304`) expõe, por caso e por eixo, o mesmo cálculo que
+`calibrate_bbox_offsets` já fazia internamente (`offset = label - anchor`), mas sem agregar
+min/max entre casos — o tamanho de envelope (`envelope_extent = offset_max - offset_min`) que cada
+caso exigiria individualmente, na resolução reduzida e em resolução integral. Validado contra os
+994 casos reais de `all_cases.csv` (2026-07-28): os 5 casos que definiram os extremos da
+calibração original batem exatamente (diferença 0,0) com os offsets já persistidos em
+`calibration_imagecas_splits_train90.json`.
+
+**Achado cruzado (2026-07-28):** `img_id=924` é o caso de maior `envelope_extent_z` de toda a
+população (247, resolução reduzida) — o mesmo caso já identificado no diagnóstico de 2026-07-24/25
+acima como pior excesso de cobertura em z na produção (under-tracking, só 2 círculos detectados).
+Duas métricas totalmente independentes (excesso do bbox calibrado vs. tamanho de envelope por
+caso, sem depender de calibração) concordam no mesmo caso — referência usada nas comparações
+abaixo. (Nota lateral, sem impacto na função: os 5 casos calibradores **não** são os de maior
+`envelope_extent_z` da população — `argmin/argmax_case_per_axis` pega o extremo de um lado só por
+eixo, enquanto `envelope_extent` soma os dois lados do mesmo caso; não é um bug.)
+
+### Tarefa 2/7 — critério A: percentil de `num_circles_detected`
+
+`select_cases_by_circle_count_percentile(records_df, exclusion_pct)`
+(`src/utils/segmentation/aorta_anchor.py:368`) exclui as duas caudas da distribuição de
+`num_circles_detected` (proxy de under-/over-tracking do Hough+Level Set, motivado pelo padrão em
+U do diagnóstico de 2026-07-24 acima). `exclusion_pct` total, dividido igualmente entre as caudas,
+via percentil (não contagem fixa de casos).
+
+Validação sobre os 994 casos (2026-07-28):
+
+| exclusion_pct | N excluído | Calibradores excluídos (de 934/428/90/23/44) | Caso 924 excluído? |
+|---|---|---|---|
+| 5% | 49 | 2/5 (23, 44) | Sim |
+| 10% | 99 | 4/5 (23, 44, 428, 934) | Sim |
+| 15% | 147 | 4/5 (23, 44, 428, 934) | Sim |
+| 20% | 194 | 4/5 (23, 44, 428, 934) | Sim |
+
+O caso 90 (`x_max` da calibração original, `num_circles_detected` no percentil 86,7%) nunca é
+excluído até 20%.
+
+### Tarefa 3/7 — critério B: percentil de `envelope_extent` — reclassificado como critério de curadoria de dataset (2026-07-28)
+
+`select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct, axis)`
+(`src/utils/segmentation/aorta_anchor.py:431`) exclui as duas caudas da distribuição de
+`envelope_extent_{axis}` (saída da tarefa 1), um eixo por vez. Mesma lógica de divisão de caudas
+da tarefa 2, para manter os critérios comparáveis.
+
+**Reclassificação metodológica (2026-07-28, decidida ao abrir a tarefa 3b):** este critério usa
+`label_min`/`label_max` do próprio caso — ou seja, **depende do label coronário**, que só existe
+porque o ImageCAS é um dataset rotulado. Por isso só serve como critério de **curadoria de
+dataset** (decidir quais dos 1000 casos já rotulados entram no estudo, análogo a critérios de
+inclusão/exclusão de qualquer benchmark) — **não pode ser parte do pipeline determinístico**
+aplicado a uma imagem nova sem anotação, que é o objetivo do Cap. 2. Os números abaixo (já
+registrados antes desta reclassificação) não mudam — só a interpretação de para que servem.
+
+Validação sobre os 994 casos, `axis="z"` (2026-07-28):
+
+| exclusion_pct | N excluído | Calibradores excluídos | Caso 924 excluído? |
+|---|---|---|---|
+| 5% | 50 | 0/5 | Sim |
+| 10% | 97 | 0/5 | Sim |
+| 15% | 143 | 1/5 (934) | Sim |
+| 20% | 189 | 1/5 (934) | Sim |
+
+O caso 90 nunca é excluído até 20%, nem em z (`envelope_extent_z` no percentil 24,5%) nem em x
+(`envelope_extent_x` no percentil 86,3%, o eixo em que ele define o extremo original — perto do
+limiar de 20% mas não o suficiente).
+
+### Tarefa 3b/7 — critério C: percentil de `aorta_voxels` (contraponto elegível para produção)
+
+`select_cases_by_aorta_volume_percentile(records_df, exclusion_pct)`
+(`src/utils/segmentation/aorta_anchor.py:507`) — mesmo desenho do critério A, trocando
+`num_circles_detected` por `aorta_voxels` (volume da máscara da aorta segmentada). Ao contrário do
+critério B, **não depende do label coronário** — derivável só da imagem, elegível para uso no
+pipeline de produção, não só como curadoria de dataset. Motivado pelo mesmo achado do diagnóstico
+de 2026-07-25 acima (volume da máscara muito distante da referência nos casos-problema, tanto por
+under-tracking quanto por over-tracking/leak).
+
+Validação sobre os 994 casos (2026-07-28):
+
+| exclusion_pct | N excluído | Calibradores excluídos | Caso 924 excluído? |
+|---|---|---|---|
+| 5% | 50 | 3/5 (23, 44, 934) | Sim |
+| 10% | 100 | 5/5 (23, 44, 90, 428, 934) | Sim |
+| 15% | 150 | 5/5 | Sim |
+| 20% | 200 | 5/5 | Sim |
+
+Percentil de `aorta_voxels` na população (994 casos) para os 5 calibradores + caso 924:
+
+| img_id | eixo/motivo | `aorta_voxels` | percentil |
+|---|---|---|---|
+| 934 | y_min | 681.114 | 98,1% |
+| 428 | y_max/x_min | 536.221 | 96,8% |
+| 90 | x_max | 489.841 | 95,6% |
+| 23 | z_min | 66.303 | 2,1% |
+| 44 | z_max | 1.024.748 | 99,1% |
+| 924 | maior `envelope_extent_z` | 1.836 | 0,2% |
+
+**O critério C é o primeiro a capturar os 5 calibradores simultaneamente**, a partir de
+`exclusion_pct=10%` — inclusive o caso 90, que os critérios A e B nunca capturam até 20% (caso 90
+passa a ser excluído pelo critério C a partir de `exclusion_pct=9%`).
+
+### Sobreposição entre os três critérios (`exclusion_pct=10%`, checagem preliminar para a tarefa 5)
+
+Sem decidir nada ainda — só uma checagem de quanto os três critérios concordam, usando os
+resultados já obtidos acima (`N(A)=99`, `N(B)=97`, `N(C)=100`, todos com `exclusion_pct=10%`,
+`B` em `axis="z"`):
+
+| Interseção | N |
+|---|---|
+| A ∩ B ∩ C | 11 (`47, 97, 176, 299, 601, 622, 724, 754, 790, 904, 924`) |
+| A ∩ B (total) | 13 |
+| A ∩ C (total) | 68 |
+| B ∩ C (total) | 14 |
+| só em A | 29 |
+| só em B | 81 |
+| só em C | 29 |
+| A ∪ B ∪ C | 212 |
+
+**A e C concordam muito mais entre si (68 de ~100) do que qualquer um concorda com B (13-14)** —
+`num_circles_detected` e `aorta_voxels` parecem capturar um sinal parecido (ambos refletem o
+comportamento do rastreamento Hough+Level Set), enquanto `envelope_extent` (que usa o label)
+captura outra coisa, majoritariamente. Interpretação e decisão sobre qual(is) usar ficam para a
+tarefa 5 — não avaliado aqui.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

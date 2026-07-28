@@ -452,6 +452,16 @@ def select_cases_by_envelope_size_percentile(
       ``envelope_extent``), ordenado por ``img_id``.
     - ``filtered_df``: os casos restantes (fora das duas caudas), mesmas colunas de
       ``envelope_df``.
+
+    **Reclassificação metodológica (tarefa 3b/7, 2026-07-28): este critério usa
+    ``label_min``/``label_max`` do próprio caso (via ``envelope_extent``, calculado por
+    :func:`compute_per_case_envelope_size`) — ou seja, depende do label coronário, que só existe
+    porque o ImageCAS é um dataset rotulado.** Por isso só serve como critério de **curadoria de
+    dataset** — decidir quais dos 1000 casos já rotulados entram no estudo, análogo a critérios de
+    inclusão/exclusão de qualquer benchmark — e **não pode ser parte do pipeline determinístico**
+    aplicado a uma imagem nova sem anotação (que é o objetivo do Cap. 2). Ver
+    :func:`select_cases_by_aorta_volume_percentile` (critério C) para um contraponto derivável só
+    da imagem, sem label, elegível para produção.
     """
     if axis not in ("y", "x", "z"):
         raise ValueError(f"axis deve ser 'y', 'x' ou 'z', recebido {axis!r}")
@@ -490,6 +500,75 @@ def select_cases_by_envelope_size_percentile(
     )
 
     filtered_df = envelope_df.loc[~(is_low | is_high)].reset_index(drop=True)
+
+    return excluded_df, filtered_df
+
+
+def select_cases_by_aorta_volume_percentile(
+    records_df: pd.DataFrame, exclusion_pct: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Critério de exclusão C: remove os casos nas duas caudas da distribuição de
+    ``aorta_voxels`` (volume da máscara da aorta segmentada).
+
+    Mesmo desenho de :func:`select_cases_by_circle_count_percentile` (critério A), trocando
+    ``num_circles_detected`` por ``aorta_voxels``. Ao contrário do critério B
+    (:func:`select_cases_by_envelope_size_percentile`), **não depende do label coronário** — é
+    derivável só da imagem (a máscara da aorta vem de ``segment_aorta``, sem nenhuma anotação) —
+    por isso é elegível para uso no pipeline determinístico de produção, não só como critério de
+    curadoria de dataset. Motivado pelo mesmo achado que originou o critério A: os casos de pior
+    cobertura em z tinham volume de máscara muito distante da referência (``docs/step6v2_aorta_
+    anchor.md``, diagnóstico de 2026-07-25, "quantificação do leak") — under-tracking (máscara
+    minúscula) e over-tracking/leak (máscara enorme) são mecanismos distintos, ambos refletidos no
+    volume total da máscara.
+
+    ``exclusion_pct`` é o percentual **total** de exclusão, dividido igualmente entre as duas
+    caudas (ex. ``exclusion_pct=5.0`` remove 2,5% do lado de baixo + 2,5% do lado de cima) via
+    percentil (``numpy.percentile``, interpolação linear) sobre ``aorta_voxels`` dos casos com
+    ``status="ok"``. Um caso é excluído se seu ``aorta_voxels`` for estritamente menor que o
+    percentil inferior ou estritamente maior que o percentil superior; com ``exclusion_pct=0`` os
+    dois percentis viram o mínimo/máximo exatos da distribuição e a comparação estrita não exclui
+    nenhum caso. Não reprocessa nada: ``aorta_voxels`` já está persistido em ``all_cases.csv``
+    para os 994 casos.
+
+    Retorna uma tupla ``(excluded_df, filtered_df)``:
+
+    - ``excluded_df``: um caso por linha (``img_id``, ``side`` = ``"baixo"``/``"alto"``,
+      ``aorta_voxels``), ordenado por ``img_id``.
+    - ``filtered_df``: os casos ``status="ok"`` restantes (fora das duas caudas), mesmas colunas
+      de ``records_df``.
+    """
+    if not (0 <= exclusion_pct < 100):
+        raise ValueError(f"exclusion_pct deve estar em [0, 100), recebido {exclusion_pct}")
+
+    required_columns = {"img_id", "status", "aorta_voxels"}
+    missing = required_columns - set(records_df.columns)
+    if missing:
+        raise ValueError(
+            f"records_df não contém as colunas esperadas: {sorted(missing)}"
+        )
+
+    ok = records_df[records_df["status"] == "ok"]
+    if ok.empty:
+        raise ValueError(
+            "Nenhum caso com status='ok' em records_df; não é possível selecionar por percentil."
+        )
+
+    tail_pct = exclusion_pct / 2.0
+    low_threshold = float(np.percentile(ok["aorta_voxels"], tail_pct))
+    high_threshold = float(np.percentile(ok["aorta_voxels"], 100.0 - tail_pct))
+
+    is_low = ok["aorta_voxels"] < low_threshold
+    is_high = ok["aorta_voxels"] > high_threshold
+
+    excluded_low = ok.loc[is_low, ["img_id", "aorta_voxels"]].assign(side="baixo")
+    excluded_high = ok.loc[is_high, ["img_id", "aorta_voxels"]].assign(side="alto")
+    excluded_df = (
+        pd.concat([excluded_low, excluded_high], ignore_index=True)
+        .sort_values("img_id")
+        .reset_index(drop=True)[["img_id", "side", "aorta_voxels"]]
+    )
+
+    filtered_df = ok.loc[~(is_low | is_high)].reset_index(drop=True)
 
     return excluded_df, filtered_df
 
@@ -604,6 +683,7 @@ __all__ = [
     "calibrate_bbox_offsets",
     "calibrate_bbox_size_joint",
     "compute_per_case_envelope_size",
+    "select_cases_by_aorta_volume_percentile",
     "select_cases_by_circle_count_percentile",
     "select_cases_by_envelope_size_percentile",
     "validate_coverage",
