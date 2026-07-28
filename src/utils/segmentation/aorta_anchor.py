@@ -365,6 +365,69 @@ def compute_per_case_envelope_size(
     return result.reset_index(drop=True)
 
 
+def select_cases_by_circle_count_percentile(
+    records_df: pd.DataFrame, exclusion_pct: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Critério de exclusão A: remove os casos nas duas caudas da distribuição de
+    ``num_circles_detected``.
+
+    Tentativa de excluir outliers de rastreamento Hough+Level Set (under-/over-tracking) na
+    calibração, motivada pelo padrão em U encontrado no diagnóstico de cobertura em z (ver
+    ``docs/step6v2_aorta_anchor.md``, achado por quintil de ``num_circles_detected``: falha de
+    cobertura em z concentrada nos dois extremos da distribuição, zero nas faixas centrais).
+
+    ``exclusion_pct`` é o percentual **total** de exclusão, dividido igualmente entre as duas
+    caudas (ex. ``exclusion_pct=5.0`` remove 2,5% do lado de baixo + 2,5% do lado de cima). Usa
+    percentil (``numpy.percentile``, interpolação linear) sobre ``num_circles_detected`` dos
+    casos com ``status="ok"`` — não uma contagem fixa de casos — para que ``exclusion_pct``
+    fracionário funcione corretamente. Um caso é excluído se seu ``num_circles_detected`` for
+    estritamente menor que o percentil inferior ou estritamente maior que o percentil superior;
+    com ``exclusion_pct=0`` os dois percentis viram o mínimo/máximo exatos da distribuição e a
+    comparação estrita não exclui nenhum caso.
+
+    Retorna uma tupla ``(excluded_df, filtered_df)``:
+
+    - ``excluded_df``: um caso por linha (``img_id``, ``side`` = ``"baixo"``/``"alto"``,
+      ``num_circles_detected``), ordenado por ``img_id``.
+    - ``filtered_df``: os casos ``status="ok"`` restantes (fora das duas caudas), mesmas colunas
+      de ``records_df``.
+    """
+    if not (0 <= exclusion_pct < 100):
+        raise ValueError(f"exclusion_pct deve estar em [0, 100), recebido {exclusion_pct}")
+
+    required_columns = {"img_id", "status", "num_circles_detected"}
+    missing = required_columns - set(records_df.columns)
+    if missing:
+        raise ValueError(
+            f"records_df não contém as colunas esperadas: {sorted(missing)}"
+        )
+
+    ok = records_df[records_df["status"] == "ok"]
+    if ok.empty:
+        raise ValueError(
+            "Nenhum caso com status='ok' em records_df; não é possível selecionar por percentil."
+        )
+
+    tail_pct = exclusion_pct / 2.0
+    low_threshold = float(np.percentile(ok["num_circles_detected"], tail_pct))
+    high_threshold = float(np.percentile(ok["num_circles_detected"], 100.0 - tail_pct))
+
+    is_low = ok["num_circles_detected"] < low_threshold
+    is_high = ok["num_circles_detected"] > high_threshold
+
+    excluded_low = ok.loc[is_low, ["img_id", "num_circles_detected"]].assign(side="baixo")
+    excluded_high = ok.loc[is_high, ["img_id", "num_circles_detected"]].assign(side="alto")
+    excluded_df = (
+        pd.concat([excluded_low, excluded_high], ignore_index=True)
+        .sort_values("img_id")
+        .reset_index(drop=True)[["img_id", "side", "num_circles_detected"]]
+    )
+
+    filtered_df = ok.loc[~(is_low | is_high)].reset_index(drop=True)
+
+    return excluded_df, filtered_df
+
+
 def calibrate_bbox_size_joint(
     records_df: pd.DataFrame,
     downscale_factors: tuple[float, float, float],
@@ -475,5 +538,6 @@ __all__ = [
     "calibrate_bbox_offsets",
     "calibrate_bbox_size_joint",
     "compute_per_case_envelope_size",
+    "select_cases_by_circle_count_percentile",
     "validate_coverage",
 ]
