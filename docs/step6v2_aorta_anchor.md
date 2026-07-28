@@ -1042,13 +1042,65 @@ coronário (reclassificado como curadoria de dataset na tarefa 3b, não elegíve
    `exclusion_pct=0%` na tabela abaixo — são casos fora do range jamais visto no treino, não uma
    exclusão intencional.
 2. **`Rv` aqui é uma aproximação por contagem de voxels** (`volume_shape_{y,x,z}` já persistido,
-   escalado para resolução integral por `downscale_factors`) — **não o volume físico (mm³) real**
-   calculado com o espaçamento de cada NIfTI, que exigiria reler os arquivos (fora do escopo desta
-   tarefa, que é só filtragem/agregação sobre `all_cases.csv`/`calibration_*.json`/`coverage_*.csv`
-   já existentes). Por isso o `Rv` médio de **6,64%** em `exclusion_pct=0%` (994 casos, proxy de
-   voxels) não deve ser comparado ponto a ponto com o `Rv` de **5,0%** documentado na seção "Achado
-   bloqueante novo" (amostra de 60 casos, volume físico com spacing real) — populações e métricas
-   diferentes, mesma ordem de grandeza, não a mesma medida.
+   escalado para resolução integral por `downscale_factors`) — não o volume físico (mm³) real
+   calculado com o espaçamento de cada NIfTI. **Correção (2026-07-28, ver "Esclarecimento 1"
+   abaixo): checado com espaçamento real e o proxy de voxels dá o número idêntico** — a ressalva
+   original aqui superestimava o risco dessa aproximação.
+
+### Esclarecimentos pós-tarefa 4 (2026-07-28)
+
+Dois pontos levantados depois da tabela acima, checados pontualmente (sem gerar nova grade de
+sweep), antes da reunião de quarta-feira.
+
+**Esclarecimento 1 — `Rv` com volume físico real (spacing por caso) para o ponto de maior
+interesse (critério C, `exclusion_pct=5%`):** recalculado lendo o cabeçalho NIfTI (`shape` +
+`get_zooms()`, sem carregar o volume completo) dos 932 casos incluídos nesse corte. Resultado:
+**`Rv` médio físico = 16,11% — idêntico ao proxy de voxels já reportado** (diferença média
+`-0,00000002`, máxima `0,00000007`, ruído de ponto flutuante). Não é coincidência: como o bbox e o
+volume original são medidos no mesmo sistema de coordenadas do mesmo caso, o espaçamento **cancela
+algebricamente** na razão `Rv = 1 - V_bbox/V_original` — `V_bbox/V_original` depende só da razão
+entre extents em voxels, não do espaçamento físico, **desde que a reconstrução do shape em
+resolução integral a partir do shape reduzido seja exata**. Confirmado empiricamente: nos 932
+casos, `volume_shape_{y,x,z} × downscale_factors` bate **exatamente** com o shape real do NIfTI em
+100% dos casos (0 discrepâncias) — x/y por serem reduzidos por um fator inteiro exato (512/2=256),
+z por não ser reduzido (`downscale_factors[2]=1`). **Conclusão: a afirmação "`Rv` mais que dobra"
+(6,64%→16,11%) se sustenta em unidade física, não é um artefato da aproximação por voxels — os dois
+números são a mesma medida.** Script ad-hoc, dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task4_physical_rv_check_criterion_c_5pct.csv`.
+
+**Esclarecimento 2 — por que `coverage_z` cai de 99,62% (15%) para 96,95% (20%) no critério A:**
+recalibrando e validando cobertura pontualmente nos dois cortes (sem gerar grade nova),
+`bbox_extent_full_resolution.z` encolhe de **290,0 para 268,0** (−22,0 voxels, resolução integral)
+entre os dois cortes — o limite superior do bbox em z (`anchor_z + offset_max_z`) cai exatamente
+22,0 unidades para todo caso (offset fixo, o mesmo deslocamento em todos), porque o caso de treino
+que definia o `z_max` aos 15% passou a ser excluído aos 20% (mais um outlier de
+`num_circles_detected` retirado do treino), e o próximo caso mais extremo define um `offset_max_z`
+menor.
+
+Isso **exclui os 21 casos de val/test cujo `label_z_max` caía exatamente na faixa de 22 voxels que
+deixou de estar coberta** — todos os 21 (`5, 16, 103, 114, 202, 240, 273, 321, 418, 419, 482, 499,
+519, 529, 534, 720, 733, 762, 807, 926, 943`) eram `covered_z=True` aos 15% e viram `covered_z=
+False` aos 20%, **permanecendo avaliados nos dois cortes** (não são casos que saíram de escopo — é
+falha de cobertura genuína, causada pelo encolhimento do bbox). O caso mais marginal é o `img_id=5`
+(`label_z_max=189,0` vs. novo teto do bbox em `188,9` — falha por 0,1 voxel).
+
+Confirma a hipótese: **sim, o bbox ficou pequeno demais em z para os extremos remanescentes de
+val/test que não foram excluídos do treino** — a exclusão de outliers de `num_circles_detected` no
+treino reduz o bbox calibrado, mas não tem como garantir que os casos de val/test que dependiam
+justamente daquela folga (agora removida) também sejam excluídos — eles continuam no conjunto
+avaliado e agora falham.
+
+Efeito secundário que amplifica a queda (não é a causa raiz, mas soma na mesma direção): dos 906
+casos de val/test, **29 saem do conjunto avaliado entre 15% e 20%** (mais casos de val/test caem
+fora do range do critério A conforme o corte aperta) — desses 29, **28 eram `covered_z=True`** e só
+1 era `covered_z=False`, então a saída desses casos do denominador também puxa a média para baixo
+(remove desproporcionalmente mais casos "bons" do que "ruins"). Contagens exatas: `N` avaliado
+782→753, `covered_z` 779→730 (`-49` = `-21` que viram falha + `-28` que saíram cobertos),
+`uncovered_z` 3→23 (`+21` novas falhas `-1` que saiu já falhando = `+20`).
+
+Script ad-hoc, sem gerar CSV novo (checagem pontual, não grade de sweep), reaproveitando só
+`calibrate_bbox_offsets`/`validate_coverage` já existentes sobre `all_cases.csv` +
+`config/imagecas_splits_train90.json`. Nenhuma função nem resultado já commitado foi alterado.
 
 **Validação sobre os 994 casos, `downscale_factors=(2, 2, 1)`, `exclusion_pct` em
 [0, 5, 10, 15, 20]:**
