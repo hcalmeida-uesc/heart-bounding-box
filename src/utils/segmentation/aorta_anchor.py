@@ -674,6 +674,162 @@ def validate_coverage(records_df: pd.DataFrame, calibration: dict[str, Any]) -> 
     return ok
 
 
+def evaluate_exclusion_criterion(
+    records_df: pd.DataFrame,
+    train_ids: list[int],
+    val_ids: list[int],
+    test_ids: list[int],
+    criterion_column: str,
+    exclusion_pct: float,
+    downscale_factors: tuple[float, float, float],
+) -> dict[str, Any]:
+    """Recalibra o bbox de tamanho fixo e valida cobertura sobre um subconjunto filtrado por um
+    critério de exclusão (tarefa 4/7).
+
+    O limiar de corte (percentil inferior/superior de ``criterion_column``, ex.
+    ``num_circles_detected`` do critério A ou ``aorta_voxels`` do critério C — **não usar o
+    critério B/``envelope_extent``**, reclassificado como curadoria de dataset, não elegível para
+    pipeline) é calculado **só com os casos de treino** — do mesmo jeito que
+    :func:`calibrate_bbox_offsets` já usa só o treino para calibrar offsets. O valor absoluto
+    resultante (não um novo percentil) é aplicado igualmente aos três splits, para que val/test
+    sejam filtrados pelo mesmo critério que definiu o corte, sem vazamento de informação de
+    val/test para a definição do limiar.
+
+    Não reprocessa nada: opera só sobre colunas já presentes em ``records_df`` (tipicamente
+    ``all_cases.csv``) — inclusive o `Rv` (redução volumétrica), aproximado em **contagem de
+    voxels** a partir de ``volume_shape_{y,x,z}`` (shape do volume já reduzido, escalado de volta
+    para resolução integral via ``downscale_factors``) — não o volume físico (mm³) real, que
+    exigiria reler o espaçamento de cada NIfTI (fora do escopo desta tarefa).
+
+    Casos de val/test excluídos pelo critério ficam **fora de escopo** — não contam nem como
+    cobertos nem como falha; o retorno separa ``n_val_excluded``/``n_test_excluded`` (fora de
+    escopo) de ``coverage_n_evaluated`` (só os casos incluídos), para não confundir "cobertura
+    melhorou" com "avaliamos menos casos".
+
+    Levanta ``ValueError`` se ``exclusion_pct`` estiver fora de ``[0, 100)``, se faltar alguma
+    coluna necessária, ou se treino, val ou test ficarem vazios **depois** do filtro (calibração/
+    validação não fazem sentido sobre um split vazio).
+
+    Retorna um dict com: limiares (``low_threshold``, ``high_threshold``), N total/excluído/
+    incluído por split, a calibração completa (mesmo dict de :func:`calibrate_bbox_offsets`),
+    ``bbox_extent_reduced``/``bbox_extent_full_resolution`` por eixo, estatísticas de `Rv` (`rv_
+    mean`, `rv_median`, `rv_std`, `rv_min`, `rv_max`, sobre todos os casos incluídos dos 3 splits)
+    e cobertura conjunta/por eixo sobre val+test incluídos.
+    """
+    if not (0 <= exclusion_pct < 100):
+        raise ValueError(f"exclusion_pct deve estar em [0, 100), recebido {exclusion_pct}")
+
+    required_columns = {
+        "img_id",
+        "status",
+        criterion_column,
+        "anchor_y",
+        "anchor_x",
+        "anchor_z",
+        "label_y_min",
+        "label_y_max",
+        "label_x_min",
+        "label_x_max",
+        "label_z_min",
+        "label_z_max",
+        "volume_shape_y",
+        "volume_shape_x",
+        "volume_shape_z",
+    }
+    missing = required_columns - set(records_df.columns)
+    if missing:
+        raise ValueError(
+            f"records_df não contém as colunas esperadas: {sorted(missing)}"
+        )
+
+    ok = records_df[records_df["status"] == "ok"]
+    train_df = ok[ok["img_id"].isin(train_ids)]
+    val_df = ok[ok["img_id"].isin(val_ids)]
+    test_df = ok[ok["img_id"].isin(test_ids)]
+
+    if train_df.empty:
+        raise ValueError("Nenhum caso de treino com status='ok' em records_df.")
+
+    tail_pct = exclusion_pct / 2.0
+    low_threshold = float(np.percentile(train_df[criterion_column], tail_pct))
+    high_threshold = float(np.percentile(train_df[criterion_column], 100.0 - tail_pct))
+
+    def _filter_by_threshold(split_df: pd.DataFrame) -> pd.DataFrame:
+        in_range = (split_df[criterion_column] >= low_threshold) & (
+            split_df[criterion_column] <= high_threshold
+        )
+        return split_df.loc[in_range]
+
+    train_filtered = _filter_by_threshold(train_df)
+    val_filtered = _filter_by_threshold(val_df)
+    test_filtered = _filter_by_threshold(test_df)
+
+    for split_name, split_filtered in (
+        ("treino", train_filtered),
+        ("val", val_filtered),
+        ("test", test_filtered),
+    ):
+        if split_filtered.empty:
+            raise ValueError(
+                f"Split '{split_name}' ficou vazio após o filtro por '{criterion_column}' "
+                f"(exclusion_pct={exclusion_pct}, low={low_threshold}, high={high_threshold})."
+            )
+
+    calibration = calibrate_bbox_offsets(train_filtered, downscale_factors)
+
+    eval_df = pd.concat([val_filtered, test_filtered], ignore_index=True)
+    coverage_df = validate_coverage(eval_df, calibration)
+
+    bbox_extent_full_resolution = {
+        axis: calibration["offset_max_full_resolution"][axis]
+        - calibration["offset_min_full_resolution"][axis]
+        for axis in ("y", "x", "z")
+    }
+    v_bbox_full_res = (
+        bbox_extent_full_resolution["y"]
+        * bbox_extent_full_resolution["x"]
+        * bbox_extent_full_resolution["z"]
+    )
+
+    included_df = pd.concat([train_filtered, val_filtered, test_filtered], ignore_index=True)
+    v_original_full_res = (
+        (included_df["volume_shape_y"] * downscale_factors[0])
+        * (included_df["volume_shape_x"] * downscale_factors[1])
+        * (included_df["volume_shape_z"] * downscale_factors[2])
+    )
+    rv_per_case = 1.0 - (v_bbox_full_res / v_original_full_res)
+
+    return {
+        "criterion_column": criterion_column,
+        "exclusion_pct": float(exclusion_pct),
+        "low_threshold": low_threshold,
+        "high_threshold": high_threshold,
+        "n_train_total": int(len(train_df)),
+        "n_train_excluded": int(len(train_df) - len(train_filtered)),
+        "n_train_included": int(len(train_filtered)),
+        "n_val_total": int(len(val_df)),
+        "n_val_excluded": int(len(val_df) - len(val_filtered)),
+        "n_val_included": int(len(val_filtered)),
+        "n_test_total": int(len(test_df)),
+        "n_test_excluded": int(len(test_df) - len(test_filtered)),
+        "n_test_included": int(len(test_filtered)),
+        "calibration": calibration,
+        "bbox_extent_reduced": calibration["bbox_extent_reduced"],
+        "bbox_extent_full_resolution": bbox_extent_full_resolution,
+        "rv_n_cases": int(len(included_df)),
+        "rv_mean": float(rv_per_case.mean()),
+        "rv_median": float(rv_per_case.median()),
+        "rv_std": float(rv_per_case.std()),
+        "rv_min": float(rv_per_case.min()),
+        "rv_max": float(rv_per_case.max()),
+        "coverage_n_evaluated": int(len(coverage_df)),
+        "coverage_joint": float(coverage_df["covered"].mean()),
+        "coverage_y": float(coverage_df["covered_y"].mean()),
+        "coverage_x": float(coverage_df["covered_x"].mean()),
+        "coverage_z": float(coverage_df["covered_z"].mean()),
+    }
+
+
 __all__ = [
     "AORTA_ANCHOR_RECORD_COLUMNS",
     "segment_aorta",
@@ -683,6 +839,7 @@ __all__ = [
     "calibrate_bbox_offsets",
     "calibrate_bbox_size_joint",
     "compute_per_case_envelope_size",
+    "evaluate_exclusion_criterion",
     "select_cases_by_aorta_volume_percentile",
     "select_cases_by_circle_count_percentile",
     "select_cases_by_envelope_size_percentile",

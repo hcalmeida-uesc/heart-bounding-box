@@ -1019,6 +1019,78 @@ região tripla A∩B∩C (é excluído pelos três critérios simultaneamente a 
 A∩C. Interpretação e decisão sobre qual(is) critério usar ficam para a tarefa 5 — não avaliado
 aqui.
 
+### Tarefa 4/7 — recalibração e cobertura sobre o subconjunto filtrado
+
+`evaluate_exclusion_criterion(records_df, train_ids, val_ids, test_ids, criterion_column,
+exclusion_pct, downscale_factors)` (`src/utils/segmentation/aorta_anchor.py:677`) recalibra
+`calibrate_bbox_offsets` só com o treino **depois de filtrado** por um critério de exclusão, e
+avalia `validate_coverage` sobre val+test filtrados pelo mesmo limiar. Ponto de desenho importante
+(pedido explicitamente nesta tarefa): o limiar (percentil inferior/superior de
+`criterion_column`) é calculado **só com os 88 casos de treino**, e o valor absoluto resultante —
+não um novo percentil — é aplicado igualmente aos três splits, para não vazar informação de
+val/test na definição do corte. Só usa `aorta_voxels` (critério C) e `num_circles_detected`
+(critério A) — **o critério B (`envelope_extent`) fica de fora**, por depender do label
+coronário (reclassificado como curadoria de dataset na tarefa 3b, não elegível para pipeline).
+
+**Duas ressalvas de leitura, importantes para não interpretar mal a tabela abaixo:**
+
+1. **`exclusion_pct=0` não significa "nenhum caso excluído".** O limiar em `exclusion_pct=0` é o
+   mínimo/máximo exato dos 88 casos de treino — mas essa faixa pode não cobrir toda a distribuição
+   de val/test (906 casos), do mesmo jeito que o offset do bbox já mostrou (seção "Achado
+   bloqueante novo" acima: o limite calibrado com 88 casos fica aquém do extremo real dos 994
+   processados). Por isso `n_val_excluded`/`n_test_excluded` já são maiores que zero em
+   `exclusion_pct=0%` na tabela abaixo — são casos fora do range jamais visto no treino, não uma
+   exclusão intencional.
+2. **`Rv` aqui é uma aproximação por contagem de voxels** (`volume_shape_{y,x,z}` já persistido,
+   escalado para resolução integral por `downscale_factors`) — **não o volume físico (mm³) real**
+   calculado com o espaçamento de cada NIfTI, que exigiria reler os arquivos (fora do escopo desta
+   tarefa, que é só filtragem/agregação sobre `all_cases.csv`/`calibration_*.json`/`coverage_*.csv`
+   já existentes). Por isso o `Rv` médio de **6,64%** em `exclusion_pct=0%` (994 casos, proxy de
+   voxels) não deve ser comparado ponto a ponto com o `Rv` de **5,0%** documentado na seção "Achado
+   bloqueante novo" (amostra de 60 casos, volume físico com spacing real) — populações e métricas
+   diferentes, mesma ordem de grandeza, não a mesma medida.
+
+**Validação sobre os 994 casos, `downscale_factors=(2, 2, 1)`, `exclusion_pct` em
+[0, 5, 10, 15, 20]:**
+
+**Critério C (`aorta_voxels`):**
+
+| exclusion_pct | N excl. treino/val/test | bbox full-res (y×x×z) | Rv médio | Rv mediana | Cobertura conjunta (N avaliado) |
+|---|---|---|---|---|---|
+| 0% | 0 / 3 / 22 | 480,5 × 414,7 × 312,6 | 6,64% | 13,60% | 96,94% (881) |
+| **5%** | 6 / 10 / 46 | 465,9 × 414,7 × 290,0 | **16,11%** | 22,26% | **96,59%** (850) |
+| 10% | 10 / 17 / 81 | 457,8 × 386,5 × 275,9 | 26,94% | 32,28% | 94,18% (808) |
+| 15% | 14 / 23 / 106 | 457,8 × 368,3 × 275,9 | 30,27% | 35,46% | 92,54% (777) |
+| 20% | 18 / 34 / 151 | 457,8 × 368,3 × 268,0 | 32,27% | 37,31% | 92,93% (721) |
+
+**Critério A (`num_circles_detected`), mesma grade:**
+
+| exclusion_pct | N excl. treino/val/test | bbox full-res (y×x×z) | Rv médio | Rv mediana | Cobertura conjunta (N avaliado) |
+|---|---|---|---|---|---|
+| 0% | 0 / 4 / 22 | 480,5 × 414,7 × 312,6 | 6,59% | 13,60% | 97,05% (880) |
+| **5%** | 6 / 11 / 65 | 472,4 × 386,5 × 297,1 | **18,96%** | 24,75% | **95,54%** (830) |
+| 10% | 10 / 19 / 91 | 472,4 × 386,5 × 297,1 | 19,30% | 24,75% | 95,48% (796) |
+| 15% | 12 / 23 / 101 | 457,8 × 386,5 × 290,0 | 23,65% | 28,81% | 94,88% (782) |
+| 20% | 17 / 30 / 123 | 457,8 × 386,5 × 268,0 | 29,39% | 34,22% | 93,23% (753) |
+
+**Ponto de maior interesse, sem decidir nada (destacado em negrito nas duas tabelas): `exclusion_
+pct=5%` do critério C** — `Rv` mais que dobra (6,64%→16,11%) com queda de cobertura de só 0,35pp
+(96,94%→96,59%). O próximo corte (5%→10%, critério C) tem custo bem pior por unidade de `Rv`
+ganho: `Rv` quase dobra de novo (16,11%→26,94%) mas a cobertura cai 2,4pp — mais de 6× o custo
+marginal do primeiro corte. O critério A em 5% ganha `Rv` parecido (6,59%→18,96%) mas com o dobro
+do custo de cobertura (1,5pp) do que o critério C no mesmo corte — nessa grade, **C parece ter uma
+relação `Rv`/cobertura mais favorável que A no corte mais brando**. Interessante notar também que,
+no critério A, o `bbox` e o `Rv` **não mudam entre 5% e 10%** — os mesmos casos definem os
+extremos em ambos os cortes. Nenhuma decisão tomada aqui — tabela completa para a reunião de
+quarta-feira.
+
+Reproduzível: script usado para gerar a tabela não versionado (rodado ad-hoc, reaproveita só
+`evaluate_exclusion_criterion` sobre `all_cases.csv` + `config/imagecas_splits_train90.json`, sem
+reprocessar nada). Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task4_exclusion_criterion_evaluation.csv`. Nenhum
+artefato de produção alterado (`calibration_imagecas_splits_train90.json` original intacto) —
+teste exploratório.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

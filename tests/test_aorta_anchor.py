@@ -12,6 +12,7 @@ from utils.segmentation.aorta_anchor import (
     calibrate_bbox_offsets,
     calibrate_bbox_size_joint,
     compute_per_case_envelope_size,
+    evaluate_exclusion_criterion,
     process_block,
     process_case_for_aorta_anchor,
     select_cases_by_aorta_volume_percentile,
@@ -720,3 +721,237 @@ def test_validate_coverage_marks_case_inside_calibrated_bbox_as_covered():
     result = validate_coverage(held_out, calibration)
 
     assert bool(result.iloc[0]["covered"]) is True
+
+
+def _evaluation_records():
+    """10 casos sintéticos com split e critério de exclusão conhecidos à mão.
+
+    Treino (img_id 1-6): ``num_circles_detected`` = 10,20,...,60 (uniforme) e
+    ``label_z_min/max`` = 100 -+ img_id*5 (janela em z cresce com o img_id, então o caso 5
+    (dentro do corte) é o mais largo dos 4 restantes depois de excluir os extremos 1 e 6).
+    y/x e ``volume_shape`` são constantes em todas as linhas (treino/val/test) para isolar o
+    efeito do filtro em z e tornar Rv idêntico entre os casos incluídos.
+
+    Val (7, 8): ``num_circles_detected`` = 15 (fora do corte de exclusion_pct=40, abaixo) e 35
+    (dentro, com label_z dentro do bbox recalibrado). Test (9, 10): 55 (fora, acima) e 45
+    (dentro).
+    """
+    rows = []
+    for img_id in range(1, 7):
+        rows.append(
+            {
+                "img_id": img_id,
+                "status": "ok",
+                "num_circles_detected": img_id * 10,
+                "anchor_y": 100.0,
+                "anchor_x": 100.0,
+                "anchor_z": 100.0,
+                "label_y_min": 90,
+                "label_y_max": 110,
+                "label_x_min": 95,
+                "label_x_max": 105,
+                "label_z_min": 100 - img_id * 5,
+                "label_z_max": 100 + img_id * 5,
+                "volume_shape_y": 128,
+                "volume_shape_x": 128,
+                "volume_shape_z": 200,
+            }
+        )
+    val_extra = {
+        7: {"num_circles_detected": 15, "label_z_min": 50, "label_z_max": 150},
+        8: {"num_circles_detected": 35, "label_z_min": 85, "label_z_max": 115},
+    }
+    test_extra = {
+        9: {"num_circles_detected": 55, "label_z_min": 10, "label_z_max": 190},
+        10: {"num_circles_detected": 45, "label_z_min": 80, "label_z_max": 120},
+    }
+    for img_id, extra in {**val_extra, **test_extra}.items():
+        rows.append(
+            {
+                "img_id": img_id,
+                "status": "ok",
+                "anchor_y": 100.0,
+                "anchor_x": 100.0,
+                "anchor_z": 100.0,
+                "label_y_min": 90,
+                "label_y_max": 110,
+                "label_x_min": 95,
+                "label_x_max": 105,
+                "volume_shape_y": 128,
+                "volume_shape_x": 128,
+                "volume_shape_z": 200,
+                **extra,
+            }
+        )
+
+    records_df = pd.DataFrame(rows)
+    train_ids = [1, 2, 3, 4, 5, 6]
+    val_ids = [7, 8]
+    test_ids = [9, 10]
+    return records_df, train_ids, val_ids, test_ids
+
+
+def test_evaluate_exclusion_criterion_computes_threshold_from_train_only():
+    records_df, train_ids, val_ids, test_ids = _evaluation_records()
+
+    result = evaluate_exclusion_criterion(
+        records_df,
+        train_ids,
+        val_ids,
+        test_ids,
+        criterion_column="num_circles_detected",
+        exclusion_pct=40.0,
+        downscale_factors=(2, 2, 1),
+    )
+
+    # tail_pct=20 sobre [10,20,30,40,50,60] (n=6): percentil 20 cai exatamente no 2º valor (20),
+    # percentil 80 no 5º (50) -- sem interpolação, por construção.
+    assert result["low_threshold"] == pytest.approx(20.0)
+    assert result["high_threshold"] == pytest.approx(50.0)
+
+    # Treino: só os ids 1 (10) e 6 (60) ficam fora de [20, 50].
+    assert result["n_train_total"] == 6
+    assert result["n_train_excluded"] == 2
+    assert result["n_train_included"] == 4
+    # Val: id 7 (15) fica fora do MESMO limiar absoluto calculado só com o treino; id 8 (35) fica dentro.
+    assert result["n_val_total"] == 2
+    assert result["n_val_excluded"] == 1
+    assert result["n_val_included"] == 1
+    # Test: id 9 (55) fica fora; id 10 (45) fica dentro.
+    assert result["n_test_total"] == 2
+    assert result["n_test_excluded"] == 1
+    assert result["n_test_included"] == 1
+
+    # Recalibração usa só os ids 2-5 (10-25 excluídos): offset_min_z/offset_max_z vêm do id 5
+    # (janela mais larga dos 4 restantes, z=[75,125] -> offset=[-25,25], extent=50) -- não do id 6
+    # (que teria offset=[-30,30], extent=60, se não tivesse sido excluído).
+    assert result["bbox_extent_reduced"]["z"] == pytest.approx(50.0)
+    assert result["bbox_extent_reduced"]["y"] == pytest.approx(20.0)
+    assert result["bbox_extent_reduced"]["x"] == pytest.approx(10.0)
+    assert result["bbox_extent_full_resolution"]["z"] == pytest.approx(50.0)  # fator z=1
+    assert result["bbox_extent_full_resolution"]["y"] == pytest.approx(40.0)  # fator y=2
+    assert result["bbox_extent_full_resolution"]["x"] == pytest.approx(20.0)  # fator x=2
+
+    # Rv: bbox_full_res = 40*20*50 = 40000; V_original_full_res = (128*2)*(128*2)*200 = 13.107.200
+    # -- constante nos 6 casos incluídos (volume_shape idêntico em todas as linhas).
+    expected_rv = 1.0 - (40000.0 / 13_107_200.0)
+    assert result["rv_n_cases"] == 6  # 4 treino + 1 val + 1 test incluídos
+    assert result["rv_mean"] == pytest.approx(expected_rv)
+    assert result["rv_median"] == pytest.approx(expected_rv)
+    assert result["rv_std"] == pytest.approx(0.0, abs=1e-9)
+    assert result["rv_min"] == pytest.approx(expected_rv)
+    assert result["rv_max"] == pytest.approx(expected_rv)
+
+    # Cobertura: só id 8 (val) e id 10 (test) são avaliados (fora de escopo: id 7 e id 9,
+    # excluídos). z do bbox recalibrado = [75, 125] -- ambos os casos incluídos caem dentro;
+    # y/x são idênticos ao bbox em todas as linhas por construção.
+    assert result["coverage_n_evaluated"] == 2
+    assert result["coverage_joint"] == pytest.approx(1.0)
+    assert result["coverage_y"] == pytest.approx(1.0)
+    assert result["coverage_x"] == pytest.approx(1.0)
+    assert result["coverage_z"] == pytest.approx(1.0)
+
+
+def test_evaluate_exclusion_criterion_zero_pct_matches_direct_calls():
+    records_df, train_ids, val_ids, test_ids = _evaluation_records()
+
+    result = evaluate_exclusion_criterion(
+        records_df,
+        train_ids,
+        val_ids,
+        test_ids,
+        criterion_column="num_circles_detected",
+        exclusion_pct=0.0,
+        downscale_factors=(2, 2, 1),
+    )
+
+    # exclusion_pct=0 não deve excluir ninguém de nenhum split.
+    assert result["n_train_excluded"] == 0
+    assert result["n_val_excluded"] == 0
+    assert result["n_test_excluded"] == 0
+
+    ok = records_df[records_df["status"] == "ok"]
+    train_df = ok[ok["img_id"].isin(train_ids)]
+    val_df = ok[ok["img_id"].isin(val_ids)]
+    test_df = ok[ok["img_id"].isin(test_ids)]
+
+    direct_calibration = calibrate_bbox_offsets(train_df, downscale_factors=(2, 2, 1))
+    assert result["calibration"] == direct_calibration
+
+    direct_coverage = validate_coverage(
+        pd.concat([val_df, test_df], ignore_index=True), direct_calibration
+    )
+    assert result["coverage_n_evaluated"] == len(direct_coverage)
+    assert result["coverage_joint"] == pytest.approx(direct_coverage["covered"].mean())
+    assert result["coverage_y"] == pytest.approx(direct_coverage["covered_y"].mean())
+    assert result["coverage_x"] == pytest.approx(direct_coverage["covered_x"].mean())
+    assert result["coverage_z"] == pytest.approx(direct_coverage["covered_z"].mean())
+
+
+def test_evaluate_exclusion_criterion_raises_when_split_empty_after_filter():
+    common = {
+        "status": "ok",
+        "anchor_y": 100.0,
+        "anchor_x": 100.0,
+        "anchor_z": 100.0,
+        "label_y_min": 90,
+        "label_y_max": 110,
+        "label_x_min": 95,
+        "label_x_max": 105,
+        "label_z_min": 90,
+        "label_z_max": 110,
+        "volume_shape_y": 128,
+        "volume_shape_x": 128,
+        "volume_shape_z": 200,
+    }
+    records_df = pd.DataFrame(
+        [
+            {"img_id": 1, "num_circles_detected": 10, **common},
+            {"img_id": 2, "num_circles_detected": 20, **common},
+            {"img_id": 3, "num_circles_detected": 30, **common},
+            {"img_id": 4, "num_circles_detected": 40, **common},
+            {"img_id": 5, "num_circles_detected": 1000, **common},  # val, bem fora do treino
+            {"img_id": 6, "num_circles_detected": 25, **common},  # test, dentro do treino
+        ]
+    )
+
+    with pytest.raises(ValueError, match="val"):
+        evaluate_exclusion_criterion(
+            records_df,
+            train_ids=[1, 2, 3, 4],
+            val_ids=[5],
+            test_ids=[6],
+            criterion_column="num_circles_detected",
+            exclusion_pct=10.0,
+            downscale_factors=(2, 2, 1),
+        )
+
+
+def test_evaluate_exclusion_criterion_raises_on_invalid_pct():
+    records_df = pd.DataFrame([{"img_id": 1, "status": "ok"}])
+
+    with pytest.raises(ValueError, match="exclusion_pct"):
+        evaluate_exclusion_criterion(
+            records_df, [1], [1], [1], "num_circles_detected", -1, (2, 2, 1)
+        )
+
+    with pytest.raises(ValueError, match="exclusion_pct"):
+        evaluate_exclusion_criterion(
+            records_df, [1], [1], [1], "num_circles_detected", 100, (2, 2, 1)
+        )
+
+
+def test_evaluate_exclusion_criterion_raises_on_missing_column():
+    records_df, train_ids, val_ids, test_ids = _evaluation_records()
+    records_df = records_df.drop(columns=["volume_shape_z"])
+
+    with pytest.raises(ValueError, match="volume_shape_z"):
+        evaluate_exclusion_criterion(
+            records_df,
+            train_ids,
+            val_ids,
+            test_ids,
+            criterion_column="num_circles_detected",
+            exclusion_pct=5.0,
+            downscale_factors=(2, 2, 1),
+        )
