@@ -975,24 +975,49 @@ passa a ser excluído pelo critério C a partir de `exclusion_pct=9%`).
 
 Sem decidir nada ainda — só uma checagem de quanto os três critérios concordam, usando os
 resultados já obtidos acima (`N(A)=99`, `N(B)=97`, `N(C)=100`, todos com `exclusion_pct=10%`,
-`B` em `axis="z"`):
+`B` em `axis="z"`).
 
-| Interseção | N |
-|---|---|
-| A ∩ B ∩ C | 11 (`47, 97, 176, 299, 601, 622, 724, 754, 790, 904, 924`) |
-| A ∩ B (total) | 13 |
-| A ∩ C (total) | 68 |
-| B ∩ C (total) | 14 |
-| só em A | 29 |
-| só em B | 81 |
-| só em C | 29 |
-| A ∪ B ∪ C | 212 |
+**Correção (2026-07-28): a tabela original desta seção rotulava as interseções pareadas como
+"(total)" sem deixar explícito se eram interseções totais (incluindo o terceiro critério) ou as
+regiões exclusivas do diagrama de Venn de 7 partes — eram interseções *totais*, mas a rotulagem
+era ambígua. Reescrita abaixo com as duas visões separadas e sem ambiguidade; nenhum valor mudou.**
 
-**A e C concordam muito mais entre si (68 de ~100) do que qualquer um concorda com B (13-14)** —
-`num_circles_detected` e `aorta_voxels` parecem capturar um sinal parecido (ambos refletem o
-comportamento do rastreamento Hough+Level Set), enquanto `envelope_extent` (que usa o label)
-captura outra coisa, majoritariamente. Interpretação e decisão sobre qual(is) usar ficam para a
-tarefa 5 — não avaliado aqui.
+**Regiões exclusivas do diagrama de Venn (7 partes, sem sobreposição entre si — a soma bate
+exatamente com o total da união A∪B∪C):**
+
+| Região | N | img_id |
+|---|---|---|
+| só A (não B, não C) | 29 | — |
+| só B (não A, não C) | 81 | — |
+| só C (não A, não B) | 29 | — |
+| A ∩ B, excluindo C | 2 | — |
+| **A ∩ C, excluindo B** | **57** | `15, 23, 25, 44, 66, 80, 111, 112, 164, 182, 191, 196, 199, 218, 225, 247, 280, 297, 301, 306, 331, 347, 368, 383, 402, 415, 421, 428, 436, 467, 508, 522, 537, 563, 575, 592, 593, 609, 631, 636, 650, 726, 738, 739, 777, 792, 816, 823, 838, 850, 864, 906, 934, 941, 951, 973, 976` |
+| B ∩ C, excluindo A | 3 | — |
+| A ∩ B ∩ C (tripla) | 11 | `47, 97, 176, 299, 601, 622, 724, 754, 790, 904, 924` |
+| **soma das 7 regiões** | **212** | igual à união A∪B∪C (212) ✓ |
+
+**Interseções pareadas totais** (inclui casos que também estão no terceiro critério — cada uma é
+a soma da região exclusiva do par + a região tripla acima):
+
+| Par | interseção total | = excl. do par + tripla | união do par | Jaccard (interseção / união) |
+|---|---|---|---|---|
+| A, C | 68 | 57 + 11 | 131 | **0,5191** |
+| A, B | 13 | 2 + 11 | 183 | 0,0710 |
+| B, C | 14 | 3 + 11 | 183 | 0,0765 |
+
+**Leitura com Jaccard (normalizada, não só contagem absoluta): A e C concordam em ~52% dos casos
+que qualquer um dos dois exclui — mais de 7× a concordância de A ou C com B (~7%)**. Confirma a
+leitura anterior (agora numericamente precisa): `num_circles_detected` (A) e `aorta_voxels` (C)
+parecem capturar um sinal parecido (ambos refletem o comportamento do rastreamento
+Hough+Level Set), enquanto `envelope_extent` (B, que usa o label) captura majoritariamente outra
+coisa.
+
+**Os 57 casos em A ∩ C excluindo B** (tabela acima) incluem **4 dos 5 calibradores** (23, 44, 428,
+934) — só o caso 90 fica de fora, mas por um motivo diferente: ele está em "só C" (não em A nem em
+B a 10%, ver tarefas 2/3 acima), não em A∩C. **O caso 924 não está nesse grupo** — ele está na
+região tripla A∩B∩C (é excluído pelos três critérios simultaneamente a 10%), não exclusivo de
+A∩C. Interpretação e decisão sobre qual(is) critério usar ficam para a tarefa 5 — não avaliado
+aqui.
 
 ## Não incluído nesta etapa / decisões em aberto
 
