@@ -1143,6 +1143,93 @@ reprocessar nada). Dados salvos em
 artefato de produção alterado (`calibration_imagecas_splits_train90.json` original intacto) —
 teste exploratório.
 
+### Tarefa nova (esclarecimento pós-reunião, 2026-07-28/29): bbox por percentil, com perda parcial em vez de cobertura binária
+
+Reteste direto do experimento de 2026-07-17 ("Explorado: recalibração por percentil em vez de
+min/max" acima, que concluiu não haver meio-termo viável) — mas agora medindo **perda parcial**
+por caso, não só cobertura binária conjunta/`Rv`. Motivação: o achado de 2026-07-17 usava cobertura
+**binária** (um único voxel do label fora do bbox já conta como falha total do caso) — uma métrica
+muito rígida que pode mascarar um meio-termo real quando a maior parte da "falha" é, na prática,
+perda pequena de uma pequena fração da árvore, não perda catastrófica.
+
+`evaluate_percentile_bbox_tradeoff(records_df, train_ids, val_ids, test_ids, offset_percentile,
+downscale_factors, exclude_via_criterion=None, exclusion_pct=None)`
+(`src/utils/segmentation/aorta_anchor.py:873`) define o bbox por um percentil do offset em cada
+eixo (não mínimo/máximo absoluto) sobre o treino — opcionalmente já filtrado por um critério de
+exclusão (reaproveita a mesma lógica de limiar de
+:func:`evaluate_exclusion_criterion`/tarefa 4, extraída para um helper compartilhado
+`_filter_splits_by_train_threshold`, `src/utils/segmentation/aorta_anchor.py:677`, sem alterar o
+comportamento já testado dessa função). `offset_percentile=100` reproduz `calibrate_bbox_offsets`
+exatamente (regressão coberta em teste).
+
+**Ressalva importante sobre a perda parcial (não é a máscara real do label):** `records_df` não
+guarda a máscara voxel a voxel da árvore coronária — só `label_{y,x,z}_min/max`, os limites da
+caixa delimitadora (mesma limitação de todas as tarefas anteriores desta linha, que só agregam
+sobre `all_cases.csv`/`calibration_*.json`/`coverage_*.csv` já existentes, sem reler NIfTI). Por
+isso a perda é aproximada tratando a árvore coronária como um **bloco retangular preenchendo sua
+própria caixa delimitadora** — a mesma aproximação que `validate_coverage` já usa para o teste
+binário, estendida para uma fração contínua (`perda = 1 - volume_interseção/volume_caixa_label`).
+**Não é a fração real de voxels perdidos** — a árvore coronária é uma estrutura fina e ramificada,
+não um bloco sólido, então o proxy provavelmente **superestima** a perda real em casos onde só a
+"casca" da caixa delimitadora é cortada mas a árvore em si (concentrada mais ao centro) continua
+intacta. Se for necessário o número exato de voxels perdidos, precisaria reler a máscara do label
+por caso (reprocessamento fora do escopo deste esclarecimento pontual — viável como tarefa
+separada se for útil para a reunião).
+
+**Validação sobre os 906 casos de val+test (`offset_percentile` em
+[100, 97.5, 95, 90, 85, 80]), duas grades:**
+
+**(a) Sem filtro de caso (reteste direto de 2026-07-17):**
+
+| offset_percentile | bbox full-res (y×x×z) | Rv médio | perda média | perda mediana | perda=0 | perda <5% | perda 5-20% | perda ≥20% |
+|---|---|---|---|---|---|---|---|---|
+| 100% | 480,5 × 414,7 × 312,6 | 6,70% | 0,47% | 0,00% | 862 | 23 | 15 | 6 |
+| 97,5% | 428,4 × 364,4 × 284,8 | 33,41% | 1,29% | 0,00% | 765 | 71 | 54 | 16 |
+| 95% | 407,2 × 357,0 × 253,1 | 44,90% | 2,16% | 0,00% | 688 | 113 | 75 | 30 |
+| 90% | 386,0 × 334,3 × 236,3 | 54,33% | 3,83% | 0,00% | 540 | 181 | 137 | 48 |
+| 85% | 373,7 × 318,3 × 226,0 | 59,73% | 5,59% | 0,83% | 414 | 211 | 209 | 72 |
+| 80% | 361,1 × 307,5 × 217,3 | 63,86% | 7,51% | 3,14% | 303 | 230 | 274 | 99 |
+
+**(b) Com filtro prévio pelo critério C a 5% (ponto de melhor custo-benefício da tarefa 4), mesma grade (N=850 avaliados):**
+
+| offset_percentile | bbox full-res (y×x×z) | Rv médio | perda média | perda mediana | perda=0 | perda <5% | perda 5-20% | perda ≥20% |
+|---|---|---|---|---|---|---|---|---|
+| 100% | 465,9 × 414,7 × 290,0 | 16,11% | 0,25% | 0,00% | 821 | 19 | 7 | 3 |
+| 97,5% | 426,3 × 361,0 × 252,0 | 41,96% | 1,02% | 0,00% | 719 | 74 | 48 | 9 |
+| 95% | 408,5 × 357,2 × 243,1 | 46,90% | 1,40% | 0,00% | 657 | 112 | 72 | 9 |
+| 90% | 385,5 × 333,4 × 230,7 | 55,62% | 3,08% | 0,00% | 500 | 188 | 135 | 27 |
+| 85% | 374,2 × 319,5 × 223,6 | 59,98% | 4,52% | 0,55% | 399 | 202 | 206 | 43 |
+| 80% | 362,7 × 305,6 × 216,3 | 64,12% | 6,50% | 2,83% | 281 | 234 | 260 | 75 |
+
+**Leitura, sem decidir nada:**
+
+- **O resultado negativo de 2026-07-17 ("sem meio-termo viável") era específico da métrica
+  binária, não se sustenta do mesmo jeito quando a métrica é perda parcial.** Em 100%
+  (arm sem filtro), `n_loss_zero`=862/906=95,14% — bate exatamente com a cobertura conjunta
+  binária já documentada (95,14%), confirmando que as duas métricas coincidem no nível de
+  referência. Mas em **97,5%**, onde a cobertura binária conjunta já tinha caído para um nível
+  ruim (documentado em 2026-07-17), a mediana da perda parcial continua **0%** e **84,4% dos
+  casos (765/906) ainda têm perda zero** — a maior parte dos casos que "falhariam" no critério
+  binário só perde uma fração pequena da árvore, não a árvore inteira. Em **90%**, com `Rv` já em
+  54,33% (um ganho grande), a perda média é de só 3,83% e a mediana continua **0%** — só 48 dos
+  906 casos (5,3%) perdem ≥20% da árvore (pelo proxy da caixa delimitadora).
+- **Filtrar primeiro pelo critério C (arm b) desloca a curva favoravelmente, mas não
+  dramaticamente**: em todo nível de percentil, o `Rv` fica mais alto e a cauda de perda alta
+  (`perda ≥20%`) fica menor com o filtro prévio (ex.: em 90%, 27 casos com filtro vs. 48 sem) —
+  consistente com a tarefa 4 (remover outliers de segmentação ajuda), mas o formato geral da curva
+  (perda mediana 0% até uns 85-90%, crescendo depois) é parecido nas duas grades.
+- Nenhuma decisão tomada aqui — as duas curvas completas ficam disponíveis para a reunião. O
+  achado mais importante para discutir é a diferença de leitura entre cobertura binária (achado de
+  2026-07-17: "sem meio-termo") e perda parcial (aqui: parece haver um meio-termo bem mais
+  favorável do que a métrica binária sozinha sugeria) — mas isso depende de aceitar a aproximação
+  de bloco retangular como proxy razoável da perda real, o que não está confirmado contra a
+  máscara voxel a voxel.
+
+Reproduzível: script ad-hoc não versionado, reaproveita só `evaluate_percentile_bbox_tradeoff`
+sobre `all_cases.csv` + `config/imagecas_splits_train90.json`, sem reprocessar nada. Dados salvos
+em `output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff.csv`. Nenhum
+artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.

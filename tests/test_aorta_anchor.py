@@ -13,6 +13,7 @@ from utils.segmentation.aorta_anchor import (
     calibrate_bbox_size_joint,
     compute_per_case_envelope_size,
     evaluate_exclusion_criterion,
+    evaluate_percentile_bbox_tradeoff,
     process_block,
     process_case_for_aorta_anchor,
     select_cases_by_aorta_volume_percentile,
@@ -954,4 +955,216 @@ def test_evaluate_exclusion_criterion_raises_on_missing_column():
             criterion_column="num_circles_detected",
             exclusion_pct=5.0,
             downscale_factors=(2, 2, 1),
+        )
+
+
+def _percentile_tradeoff_train_records():
+    # Mesmos offsets de _calibration_records() (y: -15/12; x: -5/10; z: -70/2), com
+    # volume_shape adicionado (exigido por evaluate_percentile_bbox_tradeoff para o Rv).
+    common = {
+        "status": "ok",
+        "anchor_y": 100.0,
+        "anchor_x": 100.0,
+        "anchor_z": 100.0,
+        "volume_shape_y": 128,
+        "volume_shape_x": 128,
+        "volume_shape_z": 200,
+    }
+    return pd.DataFrame(
+        [
+            {
+                "img_id": 1,
+                "label_y_min": 90,
+                "label_y_max": 105,
+                "label_x_min": 95,
+                "label_x_max": 110,
+                "label_z_min": 40,
+                "label_z_max": 102,
+                **common,
+            },
+            {
+                "img_id": 2,
+                "label_y_min": 85,
+                "label_y_max": 112,
+                "label_x_min": 98,
+                "label_x_max": 108,
+                "label_z_min": 30,
+                "label_z_max": 98,
+                **common,
+            },
+        ]
+    )
+
+
+def test_evaluate_percentile_bbox_tradeoff_at_100_matches_calibrate_bbox_offsets():
+    records_df = _percentile_tradeoff_train_records()
+
+    result = evaluate_percentile_bbox_tradeoff(
+        records_df,
+        train_ids=[1, 2],
+        val_ids=[],
+        test_ids=[],
+        offset_percentile=100.0,
+        downscale_factors=(2, 2, 1),
+    )
+    direct = calibrate_bbox_offsets(records_df, downscale_factors=(2, 2, 1))
+
+    assert result["bbox_extent_reduced"] == pytest.approx(direct["bbox_extent_reduced"])
+    for axis in ("y", "x", "z"):
+        expected_full = (
+            direct["offset_max_full_resolution"][axis] - direct["offset_min_full_resolution"][axis]
+        )
+        assert result["bbox_extent_full_resolution"][axis] == pytest.approx(expected_full)
+    assert result["exclude_via_criterion"] is None
+    assert result["exclusion_pct"] is None
+    assert result["low_threshold"] is None
+    assert result["n_train_excluded"] == 0
+    assert result["n_cases_evaluated"] == 0
+
+
+def _percentile_tradeoff_eval_records():
+    """4 casos de val, um em cada faixa de perda (0%, <5%, 5-20%, >=20%), contra o bbox
+    calibrado em offset_percentile=100 sobre _percentile_tradeoff_train_records() -- offset_z =
+    [-70, 2] (min(40,30)-100=-70; max(102,98)-100=2) -> bbox_z = [30, 102], extent 72 (resolução
+    reduzida). y/x sempre dentro do bbox por construção (label_y=[92,108] ⊂ bbox_y=[85,112];
+    label_x=[95,105] ⊂ bbox_x=[95,110]) -- só z produz perda parcial nestes casos.
+    """
+    common = {
+        "status": "ok",
+        "anchor_y": 100.0,
+        "anchor_x": 100.0,
+        "anchor_z": 100.0,
+        "label_y_min": 92,
+        "label_y_max": 108,
+        "label_x_min": 95,
+        "label_x_max": 105,
+        "volume_shape_y": 128,
+        "volume_shape_x": 128,
+        "volume_shape_z": 200,
+    }
+    return pd.DataFrame(
+        [
+            # z=[30,102] (extent 72), exatamente igual ao bbox -> overlap=72 -> perda 0%.
+            {"img_id": 4, "label_z_min": 30, "label_z_max": 102, **common},
+            # z=[28,102] (extent 74); overlap=min(102,102)-max(28,30)=72; perda=1-72/74=2,70%.
+            {"img_id": 6, "label_z_min": 28, "label_z_max": 102, **common},
+            # z=[20,102] (extent 82); overlap=72; perda=1-72/82=12,20%.
+            {"img_id": 5, "label_z_min": 20, "label_z_max": 102, **common},
+            # z=[2,102] (extent 100); overlap=72; perda=1-72/100=28%.
+            {"img_id": 3, "label_z_min": 2, "label_z_max": 102, **common},
+        ]
+    )
+
+
+def test_evaluate_percentile_bbox_tradeoff_computes_partial_loss_bins():
+    train_records = _percentile_tradeoff_train_records()
+    eval_records = _percentile_tradeoff_eval_records()
+    records_df = pd.concat([train_records, eval_records], ignore_index=True)
+
+    result = evaluate_percentile_bbox_tradeoff(
+        records_df,
+        train_ids=[1, 2],
+        val_ids=[3, 4, 5, 6],
+        test_ids=[],
+        offset_percentile=100.0,
+        downscale_factors=(2, 2, 1),
+    )
+
+    assert result["bbox_extent_reduced"]["z"] == pytest.approx(72.0)  # [30, 102]
+    assert result["n_cases_evaluated"] == 4
+    assert result["n_loss_zero"] == 1  # img_id 4
+    assert result["n_loss_lt5pct"] == 1  # img_id 6 (~2,70%)
+    assert result["n_loss_5to20pct"] == 1  # img_id 5 (~12,20%)
+    assert result["n_loss_gte20pct"] == 1  # img_id 3 (28%)
+
+    expected_losses = [0.0, 1 - 72 / 74, 1 - 72 / 82, 1 - 72 / 100]
+    assert result["loss_fraction_mean"] == pytest.approx(np.mean(expected_losses))
+    assert result["loss_fraction_median"] == pytest.approx(np.median(expected_losses))
+
+
+def test_evaluate_percentile_bbox_tradeoff_with_exclude_via_criterion_filters_train_only():
+    # 3 casos de treino, num_circles_detected=[5, 50, 95] (dois outliers simétricos + 1 "normal").
+    # Só o img_id=1 (label_z=[40,102], igual a _percentile_tradeoff_train_records) sobrevive ao
+    # corte de 20% (tail_pct=10): percentil 10 de [5,50,95] = 14 (exclui o 5); percentil 90 = 86
+    # (exclui o 95) -- o bbox recalibrado deve vir só desse caso sobrevivente.
+    common = {
+        "status": "ok",
+        "anchor_y": 100.0,
+        "anchor_x": 100.0,
+        "anchor_z": 100.0,
+        "label_y_min": 90,
+        "label_y_max": 105,
+        "label_x_min": 95,
+        "label_x_max": 110,
+        "volume_shape_y": 128,
+        "volume_shape_x": 128,
+        "volume_shape_z": 200,
+    }
+    records_df = pd.DataFrame(
+        [
+            {"img_id": 1, "num_circles_detected": 50, "label_z_min": 40, "label_z_max": 102, **common},
+            {"img_id": 2, "num_circles_detected": 5, "label_z_min": 10, "label_z_max": 190, **common},
+            {"img_id": 7, "num_circles_detected": 95, "label_z_min": 1, "label_z_max": 199, **common},
+            # val/test triviais (mesmo valor "normal" do id 1) só para não disparar o erro de
+            # split vazio -- não são o foco desta checagem, que é a filtragem do treino.
+            {"img_id": 8, "num_circles_detected": 50, "label_z_min": 40, "label_z_max": 102, **common},
+            {"img_id": 9, "num_circles_detected": 50, "label_z_min": 40, "label_z_max": 102, **common},
+        ]
+    )
+
+    result = evaluate_percentile_bbox_tradeoff(
+        records_df,
+        train_ids=[1, 2, 7],
+        val_ids=[8],
+        test_ids=[9],
+        offset_percentile=100.0,
+        downscale_factors=(2, 2, 1),
+        exclude_via_criterion="num_circles_detected",
+        exclusion_pct=20.0,
+    )
+
+    assert result["low_threshold"] == pytest.approx(14.0)
+    assert result["high_threshold"] == pytest.approx(86.0)
+    assert result["n_train_excluded"] == 2
+    assert result["n_train_included"] == 1
+    # Só o img_id 1 sobra no treino -> bbox vem só dele: offset_z = [40-100, 102-100] = [-60, 2].
+    assert result["bbox_extent_reduced"]["z"] == pytest.approx(62.0)
+
+
+def test_evaluate_percentile_bbox_tradeoff_raises_on_invalid_percentile():
+    records_df = _percentile_tradeoff_train_records()
+
+    with pytest.raises(ValueError, match="offset_percentile"):
+        evaluate_percentile_bbox_tradeoff(
+            records_df, [1, 2], [], [], offset_percentile=50.0, downscale_factors=(2, 2, 1)
+        )
+
+    with pytest.raises(ValueError, match="offset_percentile"):
+        evaluate_percentile_bbox_tradeoff(
+            records_df, [1, 2], [], [], offset_percentile=101.0, downscale_factors=(2, 2, 1)
+        )
+
+
+def test_evaluate_percentile_bbox_tradeoff_raises_when_only_one_of_criterion_pct_given():
+    records_df = _percentile_tradeoff_train_records()
+
+    with pytest.raises(ValueError, match="exclude_via_criterion"):
+        evaluate_percentile_bbox_tradeoff(
+            records_df, [1, 2], [], [], offset_percentile=95.0, downscale_factors=(2, 2, 1),
+            exclude_via_criterion="aorta_voxels", exclusion_pct=None,
+        )
+
+    with pytest.raises(ValueError, match="exclude_via_criterion"):
+        evaluate_percentile_bbox_tradeoff(
+            records_df, [1, 2], [], [], offset_percentile=95.0, downscale_factors=(2, 2, 1),
+            exclude_via_criterion=None, exclusion_pct=5.0,
+        )
+
+
+def test_evaluate_percentile_bbox_tradeoff_raises_on_missing_column():
+    records_df = _percentile_tradeoff_train_records().drop(columns=["volume_shape_z"])
+
+    with pytest.raises(ValueError, match="volume_shape_z"):
+        evaluate_percentile_bbox_tradeoff(
+            records_df, [1, 2], [], [], offset_percentile=95.0, downscale_factors=(2, 2, 1)
         )
