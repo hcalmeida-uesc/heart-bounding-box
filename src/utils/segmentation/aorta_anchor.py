@@ -428,6 +428,72 @@ def select_cases_by_circle_count_percentile(
     return excluded_df, filtered_df
 
 
+def select_cases_by_envelope_size_percentile(
+    envelope_df: pd.DataFrame, exclusion_pct: float, axis: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Critério de exclusão B: remove os casos nas duas caudas da distribuição de
+    ``envelope_extent_{axis}``, um eixo por vez.
+
+    Independente do critério A (:func:`select_cases_by_circle_count_percentile`) — os dois serão
+    comparados lado a lado, não combinados, na próxima etapa (tarefa 5/7). Recebe o DataFrame já
+    calculado por :func:`compute_per_case_envelope_size` (não reprocessa nada).
+
+    Mesma lógica de divisão de caudas da tarefa 2/7, para manter os dois critérios comparáveis no
+    mesmo desenho: ``exclusion_pct`` é o percentual **total** de exclusão, dividido igualmente
+    entre as duas caudas (ex. ``exclusion_pct=5.0`` remove 2,5% do lado de baixo + 2,5% do lado de
+    cima) via percentil (``numpy.percentile``, interpolação linear) sobre
+    ``envelope_extent_{axis}``. Um caso é excluído se seu valor for estritamente menor que o
+    percentil inferior ou estritamente maior que o percentil superior; com ``exclusion_pct=0`` os
+    dois percentis viram o mínimo/máximo exatos e a comparação estrita não exclui nenhum caso.
+
+    Retorna uma tupla ``(excluded_df, filtered_df)``:
+
+    - ``excluded_df``: um caso por linha (``img_id``, ``side`` = ``"baixo"``/``"alto"``,
+      ``envelope_extent``), ordenado por ``img_id``.
+    - ``filtered_df``: os casos restantes (fora das duas caudas), mesmas colunas de
+      ``envelope_df``.
+    """
+    if axis not in ("y", "x", "z"):
+        raise ValueError(f"axis deve ser 'y', 'x' ou 'z', recebido {axis!r}")
+    if not (0 <= exclusion_pct < 100):
+        raise ValueError(f"exclusion_pct deve estar em [0, 100), recebido {exclusion_pct}")
+
+    extent_col = f"envelope_extent_{axis}"
+    required_columns = {"img_id", extent_col}
+    missing = required_columns - set(envelope_df.columns)
+    if missing:
+        raise ValueError(
+            f"envelope_df não contém as colunas esperadas: {sorted(missing)}"
+        )
+
+    tail_pct = exclusion_pct / 2.0
+    low_threshold = float(np.percentile(envelope_df[extent_col], tail_pct))
+    high_threshold = float(np.percentile(envelope_df[extent_col], 100.0 - tail_pct))
+
+    is_low = envelope_df[extent_col] < low_threshold
+    is_high = envelope_df[extent_col] > high_threshold
+
+    excluded_low = (
+        envelope_df.loc[is_low, ["img_id", extent_col]]
+        .rename(columns={extent_col: "envelope_extent"})
+        .assign(side="baixo")
+    )
+    excluded_high = (
+        envelope_df.loc[is_high, ["img_id", extent_col]]
+        .rename(columns={extent_col: "envelope_extent"})
+        .assign(side="alto")
+    )
+    excluded_df = (
+        pd.concat([excluded_low, excluded_high], ignore_index=True)
+        .sort_values("img_id")
+        .reset_index(drop=True)[["img_id", "side", "envelope_extent"]]
+    )
+
+    filtered_df = envelope_df.loc[~(is_low | is_high)].reset_index(drop=True)
+
+    return excluded_df, filtered_df
+
+
 def calibrate_bbox_size_joint(
     records_df: pd.DataFrame,
     downscale_factors: tuple[float, float, float],
@@ -539,5 +605,6 @@ __all__ = [
     "calibrate_bbox_size_joint",
     "compute_per_case_envelope_size",
     "select_cases_by_circle_count_percentile",
+    "select_cases_by_envelope_size_percentile",
     "validate_coverage",
 ]

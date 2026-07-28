@@ -15,6 +15,7 @@ from utils.segmentation.aorta_anchor import (
     process_block,
     process_case_for_aorta_anchor,
     select_cases_by_circle_count_percentile,
+    select_cases_by_envelope_size_percentile,
     validate_coverage,
 )
 
@@ -373,6 +374,111 @@ def test_select_cases_by_circle_count_percentile_raises_when_no_ok_cases():
 
     with pytest.raises(ValueError, match="Nenhum caso"):
         select_cases_by_circle_count_percentile(records_df, exclusion_pct=5.0)
+
+
+def _envelope_size_records(values_by_axis):
+    n = len(next(iter(values_by_axis.values())))
+    data = {"img_id": list(range(1, n + 1))}
+    for axis, values in values_by_axis.items():
+        data[f"envelope_extent_{axis}"] = values
+    return pd.DataFrame(data)
+
+
+def test_select_cases_by_envelope_size_percentile_excludes_known_extremes_at_20_pct():
+    # Mesmo desenho da tarefa 2/7: 10 valores uniformemente espaçados, exclusion_pct=20 (10% por
+    # cauda) só exclui estritamente o mínimo e o máximo.
+    envelope_df = _envelope_size_records({"z": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]})
+
+    excluded_df, filtered_df = select_cases_by_envelope_size_percentile(
+        envelope_df, exclusion_pct=20.0, axis="z"
+    )
+
+    assert list(excluded_df["img_id"]) == [1, 10]
+    by_img_id = excluded_df.set_index("img_id")
+    assert by_img_id.loc[1, "side"] == "baixo"
+    assert by_img_id.loc[1, "envelope_extent"] == 10
+    assert by_img_id.loc[10, "side"] == "alto"
+    assert by_img_id.loc[10, "envelope_extent"] == 100
+    assert len(filtered_df) == 8
+    assert set(filtered_df["img_id"]) == {2, 3, 4, 5, 6, 7, 8, 9}
+
+
+def test_select_cases_by_envelope_size_percentile_zero_excludes_nothing():
+    envelope_df = _envelope_size_records({"z": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]})
+
+    excluded_df, filtered_df = select_cases_by_envelope_size_percentile(
+        envelope_df, exclusion_pct=0.0, axis="z"
+    )
+
+    assert excluded_df.empty
+    assert len(filtered_df) == 10
+
+
+def test_select_cases_by_envelope_size_percentile_fractional_splits_tails_correctly():
+    values = list(range(1, 101))
+    envelope_df = _envelope_size_records({"z": values})
+
+    excluded_df, filtered_df = select_cases_by_envelope_size_percentile(
+        envelope_df, exclusion_pct=5.0, axis="z"
+    )
+
+    low_threshold = np.percentile(values, 2.5)
+    high_threshold = np.percentile(values, 97.5)
+    expected_low = [v for v in values if v < low_threshold]
+    expected_high = [v for v in values if v > high_threshold]
+
+    assert sorted(excluded_df.loc[excluded_df["side"] == "baixo", "envelope_extent"]) == sorted(
+        expected_low
+    )
+    assert sorted(excluded_df.loc[excluded_df["side"] == "alto", "envelope_extent"]) == sorted(
+        expected_high
+    )
+    assert len(filtered_df) == 100 - len(expected_low) - len(expected_high)
+
+
+def test_select_cases_by_envelope_size_percentile_uses_correct_axis_column():
+    # x tem outlier alto no img_id=10; z tem outlier alto no img_id=1 — confere que a função
+    # realmente lê a coluna do eixo pedido, não sempre a mesma.
+    envelope_df = _envelope_size_records(
+        {
+            "x": [50, 51, 52, 53, 54, 55, 56, 57, 58, 999],
+            "z": [999, 21, 22, 23, 24, 25, 26, 27, 28, 29],
+        }
+    )
+
+    excluded_x, _ = select_cases_by_envelope_size_percentile(
+        envelope_df, exclusion_pct=20.0, axis="x"
+    )
+    excluded_z, _ = select_cases_by_envelope_size_percentile(
+        envelope_df, exclusion_pct=20.0, axis="z"
+    )
+
+    assert set(excluded_x["img_id"]) == {1, 10}
+    assert set(excluded_z["img_id"]) == {1, 2}
+
+
+def test_select_cases_by_envelope_size_percentile_raises_on_invalid_axis():
+    envelope_df = _envelope_size_records({"z": [1, 2, 3]})
+
+    with pytest.raises(ValueError, match="axis"):
+        select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct=5.0, axis="w")
+
+
+def test_select_cases_by_envelope_size_percentile_raises_on_invalid_pct():
+    envelope_df = _envelope_size_records({"z": [1, 2, 3]})
+
+    with pytest.raises(ValueError, match="exclusion_pct"):
+        select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct=-1, axis="z")
+
+    with pytest.raises(ValueError, match="exclusion_pct"):
+        select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct=100, axis="z")
+
+
+def test_select_cases_by_envelope_size_percentile_raises_on_missing_column():
+    envelope_df = _envelope_size_records({"z": [1, 2, 3]})
+
+    with pytest.raises(ValueError, match="envelope_extent_x"):
+        select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct=5.0, axis="x")
 
 
 def test_validate_coverage_flags_case_outside_calibrated_bbox():
