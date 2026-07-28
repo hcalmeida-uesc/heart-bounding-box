@@ -1301,6 +1301,79 @@ pkl`) para a perda exata. Dados salvos em
 `output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff_real_vs_proxy.csv`.
 Nenhum artefato de produção alterado.
 
+### Fechamento da tarefa 5 (2026-07-29): os 13 casos da cauda severa no ponto recomendado (critério C 5% + `offset_percentile=95%`)
+
+Identificação nominal, sem reprocessar (reaproveita o cache de máscaras da seção anterior), dos 13
+casos com perda real ≥20% especificamente no ponto de maior interesse combinado — critério C a 5%
+de exclusão + bbox por percentil 95% (`arm` "com filtro critério C 5%", `offset_percentile=95`,
+`bbox_z_full=243,1`, `Rv=46,90%`, ver tabela (b) acima).
+
+| img_id | perda real | split | conhecido? |
+|---|---|---|---|
+| 132 | 61,21% | test | novo |
+| 191 | 53,20% | test | novo |
+| 601 | 49,86% | test | novo |
+| 941 | 47,62% | test | novo |
+| 754 | 39,37% | test | novo |
+| 321 | 37,82% | test | novo |
+| 976 | 30,86% | test | novo |
+| 499 | 29,95% | test | novo |
+| 554 | 28,30% | test | novo |
+| 529 | 27,97% | test | novo |
+| 401 | 22,34% | val | novo |
+| 202 | 21,40% | test | novo |
+| 246 | 20,67% | test | novo |
+
+**Nenhum dos 13 coincide com os 5 calibradores originais (934, 428, 90, 23, 44) nem com os 5
+piores casos de cobertura já inspecionados visualmente (622, 196, 790, 924, 777)** — a cauda
+severa neste ponto é inteiramente formada por casos ainda não caracterizados nesta investigação
+(12 de test, 1 de val — proporção compatível com o tamanho dos splits, 700 vs. 210).
+
+**`num_circles_detected`/`aorta_voxels` dos 13, e proximidade do limiar do critério C
+(`[103.452, 675.318]` voxels, calculado só no treino filtrado a 5%):**
+
+| img_id | `num_circles_detected` (percentil pop.) | `aorta_voxels` (percentil pop.) | margem até o limiar mais próximo |
+|---|---|---|---|
+| 132 | 47 (2,6%) | 118.395 (7,0%) | **14.943 acima do limiar inferior** (2,6% da faixa) |
+| 246 | 55 (3,4%) | 146.144 (17,2%) | 42.692 acima do inferior (7,5% da faixa) |
+| 601 | 183 (97,5%) | 658.323 (97,9%) | **16.995 abaixo do limiar superior** (3,0% da faixa) |
+| 976 | 214 (98,8%) | 655.260 (97,8%) | **20.058 abaixo do superior** (3,5% da faixa) |
+| 554 | 156 (94,8%) | 622.614 (97,6%) | 52.704 abaixo do superior (9,2% da faixa) |
+| 529 | 147 (90,9%) | 597.836 (97,3%) | 77.482 abaixo do superior (13,6% da faixa) |
+| 754 | 232 (99,4%) | 587.670 (97,1%) | 87.648 abaixo do superior (15,3% da faixa) |
+| 941 | 184 (97,7%) | 485.459 (95,1%) | 189.859 abaixo do superior (33,2% da faixa) |
+| 499 | 140 (87,5%) | 430.596 (91,0%) | 244.722 abaixo do superior (42,8% da faixa) |
+| 401 | 161 (95,6%) | 265.993 (69,8%) | 162.541 acima do inferior (28,4% da faixa) |
+| 202 | 107 (51,3%) | 226.840 (57,5%) | 123.388 acima do inferior (21,6% da faixa) |
+| 321 | 116 (63,8%) | 225.288 (56,5%) | 121.836 acima do inferior (21,3% da faixa) |
+| 191 | 231 (99,2%) | 567.766 (97,0%) | 107.552 abaixo do superior (18,8% da faixa) |
+
+(faixa total do limiar = 675.318 − 103.452 = 571.866 voxels; "% da faixa" = margem ÷ faixa total)
+
+**Leitura, sem decidir nada:**
+
+- **Todos os 13 estão dentro do limiar do critério C** (nenhum deveria ter sido excluído pela
+  regra atual) — a pergunta é se o limiar está "frouxo" para alguns deles especificamente, ou se é
+  um mecanismo de falha diferente que `aorta_voxels` não captura.
+- **5 casos estão relativamente perto da borda do limiar** (margem ≤10% da faixa): 132 e 246 perto
+  do limiar inferior (under-tracking, poucos círculos/máscara pequena — mesmo perfil dos casos
+  924/777 já conhecidos), e 601, 976, 554 perto do limiar superior (over-tracking/leak, muitos
+  círculos/máscara grande — mesmo perfil dos casos 622/196 já conhecidos). Apertar o corte de 5%
+  para algo como 7-10% provavelmente capturaria esses 5.
+- **8 casos NÃO estão perto de nenhuma borda** (margem >13% da faixa, alguns >30-40%: 941, 499,
+  754, 529, 401, 202, 321, 191) — `aorta_voxels` desses casos é "normal" o suficiente para não ser
+  candidato a exclusão por percentil, mesmo apertando bastante o corte. Isso sugere que, para pelo
+  menos parte destes 8, a perda severa em z **não é explicada pelo mesmo mecanismo** (volume total
+  da máscara da aorta) que motivou o critério C — pode ser variabilidade anatômica real, ou um
+  padrão de falha ainda não identificado nos diagnósticos anteriores (nenhum desses 8 apareceu nas
+  listas de "piores casos" já investigadas). **Não caracterizado além disso aqui** — candidato a
+  inspeção visual futura, se a reunião decidir que vale a pena.
+
+Reproduzível: script ad-hoc, reaproveita o cache `label_voxel_cache_valtest.pkl` (sem reler NIfTI
+de novo) + `all_cases.csv`. Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task5_severe_tail_case_c5_p95.csv`. Nenhum artefato
+de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
