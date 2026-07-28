@@ -316,6 +316,14 @@ def compute_per_case_envelope_size(
     convenção de sinal de :func:`calibrate_bbox_offsets`), ``envelope_extent`` (``offset_max -
     offset_min``, resolução reduzida) e ``envelope_extent_full_res`` (escalado por
     ``downscale_factors``, fator 1 no eixo z).
+
+    Nota (validação manual, 2026-07-28): ``img_id=924`` é o caso de maior ``envelope_extent_z``
+    entre os 994 casos processados (247, resolução reduzida) — o mesmo caso já identificado em
+    ``docs/step6v2_aorta_anchor.md`` (diagnóstico de 2026-07-24/25) como pior caso de excesso de
+    cobertura em z na produção (under-tracking, só 2 círculos detectados pelo Hough). Duas
+    métricas independentes (excesso do bbox calibrado vs. tamanho de envelope por caso, sem
+    depender de calibração alguma) concordam no mesmo caso — referência direta para a comparação
+    dos critérios de exclusão A/B na tarefa 5/7.
     """
     required_columns = {
         "img_id",
