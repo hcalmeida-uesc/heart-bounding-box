@@ -1541,6 +1541,26 @@ o cache de máscaras estendido (`label_voxel_cache_all_ok.pkl`), sem reprocessar
 salvos em `output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv`. Nenhum
 artefato de produção alterado.
 
+## Decisão da reunião de 2026-07-29 (Dany + Hélder)
+
+Resumo de decisão — detalhes completos em [docs/STATUS.md](STATUS.md). Escolhidas **duas opções**
+para teste em treino real, ambas usando o mesmo **Critério C** (`aorta_voxels`,
+`exclusion_pct=5%`) para exclusão de casos, diferindo só na tolerância a perda parcial de label:
+
+- **Opção 1 (perda parcial tolerada)**: linha `arm="com filtro critério C 5%"`,
+  `offset_percentile=95` em
+  [task5_percentile_bbox_tradeoff_real_vs_proxy.csv](../output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff_real_vs_proxy.csv)
+  (seção "Correção (2026-07-28/29): perda real... vs. proxy geométrico" acima) — `Rv` médio ≈
+  46,9-47%.
+- **Opção 2 (perda zero garantida)**: linha `offset_percentile=98` em
+  [task_n_rv_curve_zero_loss.csv](../output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv)
+  (seção "Otimização N × Rv com perda real zero garantida" acima) — `N_final`=848/1000 (84,8% do
+  dataset retido), `Rv` médio=36,26%.
+
+Não decidir entre as duas só pela curva de `Rv`/N — plano combinado com o Dany é rodar as duas em
+treino real e comparar a métrica de segmentação final (DSC/HD/AHD) + VRAM/tempo de treino. Nenhum
+código, CSV ou notebook alterado por esta seção — só a decisão registrada.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
