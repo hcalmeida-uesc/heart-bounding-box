@@ -1526,10 +1526,40 @@ prescrever nada:**
   "correto" identificável só pelos dados — depende de quanto do dataset o Cap. 1 pode perder e
   ainda re-treinar de forma válida, uma decisão fora do escopo desta análise.
 
+### Quebra por split original (treino/val/test do `imagecas_splits_train90.json`)
+
+Os 944 casos filtrados pelo critério C se dividem em 82 de treino, 204 de val, 658 de test.
+`N_final` de cada ponto da grade, agora por split (checagem cruzada: os totais batem exatamente
+com `n_final` da tabela acima em todos os 10 pontos):
+
+| offset_percentile | treino sobrevive (de 82) | val sobrevive (de 204) | test sobrevive (de 658) | % treino | % val | % test |
+|---|---|---|---|---|---|---|
+| 100% | 82 | 204 | 658 | 100,0% | 100,0% | 100,0% |
+| 99% | 79 | 191 | 623 | 96,3% | 93,6% | 94,7% |
+| 98% | 74 | 184 | 590 | 90,2% | 90,2% | 89,7% |
+| 97% | 71 | 178 | 552 | 86,6% | 87,3% | 83,9% |
+| 96% | 65 | 167 | 525 | 79,3% | 81,9% | 79,8% |
+| 95% | 59 | 156 | 501 | 72,0% | 76,5% | 76,1% |
+| 92,5% | 49 | 135 | 434 | 59,8% | 66,2% | 66,0% |
+| 90% | 41 | 118 | 374 | 50,0% | 57,8% | 56,8% |
+| 85% | 25 | 92 | 270 | 30,5% | 45,1% | 41,0% |
+| 80% | 19 | 64 | 197 | 23,2% | 31,4% | 29,9% |
+
+**Achado adicional, sem explicação causal confirmada**: a partir de ~96%, o **treino sobrevive
+sistematicamente a uma taxa menor que val/test** — a diferença cresce com o corte (72,0% vs.
+76,1-76,5% em 95%; 30,5% vs. 41,0-45,1% em 85%; 23,2% vs. 29,9-31,4% em 80%). Hipóteses possíveis,
+não testadas aqui: (i) o split de treino (só 82 casos) é uma amostra bem menor que val (204) e test
+(658), então a proporção é naturalmente mais ruidosa/sensível a poucos casos extremos; (ii) o
+split `train90` foi o mesmo usado para calibrar o bbox de tamanho fixo original (tarefas 1-5), cujos
+5 casos-calibradores (934, 428, 90, 23, 44) vêm todos do treino — se o treino de fato concentra
+mais casos de janela de label extrema por composição do split (não por causa), isso explicaria a
+menor sobrevivência sem precisar de nenhum mecanismo novo. Não investigado além disso.
+
 Reproduzível: script ad-hoc, reaproveita `select_cases_by_aorta_volume_percentile` já existente +
 o cache de máscaras estendido (`label_voxel_cache_all_ok.pkl`), sem reprocessar segmentação. Dados
-salvos em `output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv`. Nenhum
-artefato de produção alterado.
+salvos em `output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv` (totais) e
+`output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss_by_split.csv` (quebra por
+split). Nenhum artefato de produção alterado.
 
 ## Não incluído nesta etapa / decisões em aberto
 
