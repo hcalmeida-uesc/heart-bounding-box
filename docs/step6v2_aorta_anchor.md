@@ -1446,6 +1446,91 @@ reaproveita `select_cases_by_aorta_volume_percentile`/`select_cases_by_circle_co
 `output/bounding_box/aorta_anchor_z_diagnosis/task_full_population_calibration.csv`. Nenhum
 artefato de produção alterado (`calibration_imagecas_splits_train90.json` original intacto).
 
+## Otimização N × Rv com perda real zero garantida (2026-07-29)
+
+Substitui a curva de percentil da tarefa 5 como candidato a **método final de produção** — a
+tarefa 5 permanece só como exploração diagnóstica (usava `offset_percentile` calibrado só no
+treino, validado em val/test, e tolerava perda parcial). Aqui a régua muda: **perda real zero é
+obrigatória** (não mais tolerada), e o `offset_percentile` é calibrado sobre a **população inteira
+já filtrada pelo critério C** (não só treino) — porque o objetivo agora é definir o bbox final de
+produção sobre o dataset que sobra, não medir generalização treino→teste.
+
+**Regra de inclusão explícita — definição de domínio de aplicabilidade, não regra de pipeline:**
+um caso só entra no dataset final de um ponto da grade se seu **label real** (voxel a voxel, não o
+proxy de caixa) cabe **inteiramente** dentro do bbox calibrado. Isso usa o label do próprio caso —
+é exatamente a mesma natureza do critério B (envelope_extent), já reclassificado na tarefa 3b como
+**curadoria de dataset, não pipeline determinístico aplicável a uma imagem nova sem anotação**. O
+resultado desta seção define **quais das 1000 imagens do ImageCAS entram no estudo** em cada corte
+de `offset_percentile` — não um procedimento para decidir isso numa imagem nova.
+
+**Método**: `select_cases_by_aorta_volume_percentile` (critério C, `exclusion_pct=5%`, sobre os
+994 casos inteiros) → 944 casos incluídos, 50 excluídos. Cache de máscaras estendido de 906
+(`label_voxel_cache_valtest.pkl`, só val+test) para os 994 casos `ok` inteiros
+(`label_voxel_cache_all_ok.pkl`, +88 casos de treino recarregados — ~169s, dentro do esperado).
+Para cada nível de `offset_percentile` em `[100, 99, 98, 97, 96, 95, 92.5, 90, 85, 80]`: bbox
+calibrado por percentil do offset **sobre os 944 casos filtrados** (não só treino); por caso,
+checagem voxel a voxel se o label cabe inteiro (perda real = 0); `N_final` = sobreviventes;
+`Rv` calculado **só sobre os sobreviventes** (não sobre os 944 testados).
+
+**Checagem de consistência**: em `offset_percentile=100%`, o resultado bate exatamente com a linha
+"C @ 5%" já reportada na seção anterior (bbox 550,8×589,3×320,5, `Rv` médio −56,06%, `N`=944,
+0 excluídos por não caber) — confirma que as duas análises usam a mesma base.
+
+| offset_percentile | bbox full-res (y×x×z) | N final | `Rv` médio | `Rv` mediana | `Rv` mín | excl. por critério C | excl. por não caber | N total excluído (de 1000) |
+|---|---|---|---|---|---|---|---|---|
+| 100% | 550,8 × 589,3 × 320,5 | 944 | **−56,06%** | −44,30% | −139,1% | 50 | 0 | 56 |
+| 99% | 458,0 × 398,6 × 272,7 | 893 | **25,32%** | 30,94% | −14,4% | 50 | 51 | 107 |
+| 98% | 436,2 × 379,0 × 257,4 | 848 | 36,26% | 40,97% | 2,2% | 50 | 96 | 152 |
+| 97% | 425,9 × 368,2 × 248,7 | 801 | 41,65% | 45,91% | 27,8% | 50 | 143 | 199 |
+| 96% | 414,4 × 361,7 × 242,6 | 757 | 45,63% | 49,57% | 32,7% | 50 | 187 | 243 |
+| 95% | 408,9 × 356,5 × 240,2 | 716 | 47,64% | 51,44% | 35,2% | 50 | 228 | 284 |
+| 92,5% | 393,5 × 346,0 × 232,5 | 618 | 52,61% | 56,09% | 41,4% | 50 | 326 | 382 |
+| 90% | 384,9 × 336,3 × 227,0 | 533 | 55,92% | 59,24% | 45,6% | 50 | 411 | 467 |
+| 85% | 370,2 × 321,3 × 215,9 | 387 | 61,41% | 64,36% | 52,4% | 50 | 557 | 613 |
+| 80% | 357,5 × 308,4 × 208,2 | 280 | 65,61% | 68,16% | 57,5% | 50 | 664 | 720 |
+
+(N total excluído = 6 falhas de detecção da aorta + 50 excluídos pelo critério C a 5% + excluídos
+por não caber inteiro no bbox deste percentil; constante em 6+50=56 em toda a grade, a última
+coluna varia só pelo termo de "não caber".)
+
+**Custo marginal (casos perdidos por ponto percentual de `Rv` ganho), para achar o "joelho" sem
+prescrever nada:**
+
+| transição | ΔN (casos perdidos) | Δ`Rv` médio (pp) | casos perdidos por pp de `Rv` |
+|---|---|---|---|
+| 100%→99% | −51 | +81,38 | **0,63** |
+| 99%→98% | −45 | +10,94 | 4,11 |
+| 98%→97% | −47 | +5,39 | 8,72 |
+| 97%→96% | −44 | +3,98 | 11,06 |
+| 96%→95% | −41 | +2,01 | 20,40 |
+| 95%→92,5% | −98 | +4,97 | 19,72 |
+| 92,5%→90% | −85 | +3,31 | 25,68 |
+| 90%→85% | −146 | +5,49 | 26,59 |
+| 85%→80% | −107 | +4,20 | 25,48 |
+
+**Leitura, sem escolher o ponto ótimo:**
+
+- **O "joelho" mais nítido da curva fica logo na primeira transição, 100%→99%**: só 51 casos
+  (5,4% dos 944) saem, e o `Rv` médio salta de −56,06% para +25,32% — um ganho de 81,4 pontos
+  percentuais ao custo de 0,63 caso por ponto, disparado mais barato que qualquer transição
+  seguinte. Isso confirma o achado da seção anterior: o mínimo/máximo absoluto (100%) é dominado
+  por um punhado de casos extremos — removê-los (ainda que só do bbox, não do dataset final,
+  já que 99% ainda inclui a maioria) já resolve a maior parte do problema de `Rv` negativo.
+- **Da 99% em diante, o custo marginal cresce de forma razoavelmente suave** (de ~4 para ~25-27
+  casos por ponto de `Rv`), sem um segundo joelho tão nítido — é mais um platô de retornos
+  decrescentes do que um segundo ponto de inflexão abrupta. Os pontos de custo marginal mais alto
+  ficam entre 90% e 80% (~25-27 casos/pp), onde o dataset final já caiu para 280-533 casos (de
+  1000 originais).
+- **Trade-off central para a decisão humana**: em 95%, `N_final`=716 (71,6% do dataset original)
+  com `Rv` médio de 47,6%; em 85%, `N_final`=387 (38,7%) com `Rv` médio de 61,4%. Não há um ponto
+  "correto" identificável só pelos dados — depende de quanto do dataset o Cap. 1 pode perder e
+  ainda re-treinar de forma válida, uma decisão fora do escopo desta análise.
+
+Reproduzível: script ad-hoc, reaproveita `select_cases_by_aorta_volume_percentile` já existente +
+o cache de máscaras estendido (`label_voxel_cache_all_ok.pkl`), sem reprocessar segmentação. Dados
+salvos em `output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv`. Nenhum
+artefato de produção alterado.
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
