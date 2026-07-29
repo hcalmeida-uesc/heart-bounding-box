@@ -1374,6 +1374,78 @@ de novo) + `all_cases.csv`. Dados salvos em
 `output/bounding_box/aorta_anchor_z_diagnosis/task5_severe_tail_case_c5_p95.csv`. Nenhum artefato
 de produção alterado.
 
+## Calibração sobre população inteira, garantia de cobertura total (2026-07-29)
+
+Tarefa fora da numeração 1-7, motivada pelo esclarecimento do objetivo real do bbox: a premissa é
+**cobertura de 100% dos labels, inegociável** (o bbox existe para permitir maior resolução por
+imagem dentro do mesmo orçamento de VRAM, não para descartar anotação alguma) — diferente do
+desenho das tarefas 1-5, que calibravam só no split de treino e mediam cobertura/perda em val/test
+como teste de generalização. Aqui não há mais essa distinção: `calibrate_bbox_offsets` é aplicada
+sobre a **população inteira filtrada pelo critério de qualidade** (treino+val+test juntos, sem
+holdout), de modo que a cobertura de 100% é garantida **por construção** (o mínimo/máximo vem da
+mesma população que ele cobre) — qualquer caso não coberto sinalizaria bug, não resultado
+esperado.
+
+**Método**: `select_cases_by_aorta_volume_percentile`/`select_cases_by_circle_count_percentile`
+(critérios C/A, sem alteração) aplicados aos 994 casos inteiros (não só treino);
+`calibrate_bbox_offsets` sobre o conjunto filtrado resultante inteiro; `validate_coverage` sobre
+esse mesmo conjunto (não um holdout) só como checagem de sanidade. `Rv` por caso via
+`volume_shape_{y,x,z}` (mesmo proxy de voxels já usado nas tarefas 4/5, confirmado equivalente ao
+volume físico real). Sem reprocessar segmentação — tudo já está em `all_cases.csv`.
+
+**Confirmação de sanidade: cobertura = 100,0000% em todas as 10 combinações testadas** (2
+critérios × 5 níveis de `exclusion_pct`) — nenhum caso não coberto em nenhum ponto, como esperado
+por construção.
+
+| critério | exclusion_pct | N excluído (qualidade) | bbox full-res (y×x×z) | `Rv` médio | `Rv` mediana | `Rv` mín/máx | casos com `Rv`<0 | N final (de 1000) |
+|---|---|---|---|---|---|---|---|---|
+| C (`aorta_voxels`) | 0% | 0 | 550,8 × 621,1 × 399,9 | **−104,94%** | −89,78% | −214,4% / −88,4% | 994/994 (100%) | 994 |
+| C | 5% | 50 | 550,8 × 589,3 × 320,5 | **−56,06%** | −44,30% | −139,1% / −43,3% | 944/944 (100%) | 944 |
+| C | 10% | 100 | 530,6 × 589,3 × 302,1 | **−41,56%** | −31,04% | −92,7% / −30,1% | 894/894 (100%) | 894 |
+| C | 15% | 150 | 495,2 × 449,7 × 290,9 | 2,88% | 10,14% | −32,2% / 10,8% | 257/844 (30,5%) | 844 |
+| C | 20% | 200 | 495,1 × 449,7 × 290,9 | 2,97% | 10,16% | −23,5% / 10,8% | 242/794 (30,5%) | 794 |
+| A (`num_circles_detected`) | 0% | 0 | 550,8 × 621,1 × 399,9 | **−104,94%** | −89,78% | −214,4% / −88,4% | 994/994 (100%) | 994 |
+| A | 5% | 49 | 530,6 × 589,3 × 302,7 | **−41,98%** | −31,31% | −117,5% / −30,4% | 945/945 (100%) | 945 |
+| A | 10% | 99 | 495,2 × 449,7 × 302,1 | −0,75% | 6,68% | −37,2% / 7,4% | 299/895 (33,4%) | 895 |
+| A | 15% | 147 | 495,2 × 449,7 × 302,1 | −0,48% | 6,68% | −37,2% / 7,4% | 277/847 (32,7%) | 847 |
+| A | 20% | 194 | 495,2 × 449,7 × 302,1 | −0,39% | 6,68% | −37,2% / 7,4% | 260/800 (32,5%) | 800 |
+
+(N final de 1000 = 1000 − 6 falhas de detecção da aorta já conhecidas − N excluído pelo filtro de
+qualidade nesse corte.)
+
+**Leitura, sem decidir nada:**
+
+- **`Rv` é negativo em 7 das 10 combinações testadas — inclusive em 100% dos casos individuais em
+  `exclusion_pct` 0% e 5%, para os dois critérios.** `Rv` negativo significa que o bbox calibrado é
+  **maior que o volume original daquele caso** (o "recorte" na verdade aumentaria a imagem, não
+  reduziria) — não é um resultado marginal, é a maioria ou totalidade da população nos cortes mais
+  brandos.
+- **Mesmo no corte mais agressivo testado (20% de exclusão), `Rv` médio mal passa de 3%** (critério
+  C) **ou continua negativo** (critério A, −0,39%) — e ainda assim **~30-33% dos casos individuais
+  continuam com `Rv` negativo**, mesmo depois de excluir a quinta parte da população por qualidade
+  de segmentação.
+- **Causa provável (mesma família do achado bloqueante original)**: calibrar sobre uma população
+  muito maior (794-994 casos aqui, contra 82-88 casos de treino nas tarefas 1-5) captura extremos
+  reais mais distantes — quanto maior a amostra usada para o mínimo/máximo, mais extremo o valor
+  observado tende a ser. O bbox por mínimo/máximo sobre a população inteira precisa satisfazer
+  simultaneamente o pior caso de cada eixo entre **quase mil pacientes**, não só 88 — o mesmo
+  mecanismo já documentado na seção "Achado bloqueante novo" acima, mas agravado pela população
+  maior.
+- **Isso ameaça diretamente a premissa que motivou esta tarefa** (permitir maior resolução por
+  imagem dentro do mesmo orçamento de VRAM): garantir cobertura de 100% por mínimo/máximo simples
+  sobre a população inteira, mesmo depois de filtrar os piores 20% por qualidade de segmentação,
+  não produz redução de volume que valha a pena — o ganho de eficiência computacional (a segunda
+  metade da hipótese central do capítulo) não se sustenta com este método, nesta forma.
+- **N final do dataset** (1000 menos falhas de detecção da aorta menos exclusão de qualidade)
+  varia de 994 (sem filtro) a 794/800 (20% de exclusão) — este é o tamanho de dataset sobre o qual
+  o Capítulo 1 precisaria ser retreinado, dependendo do corte final escolhido.
+
+Nenhuma decisão tomada aqui — tabela completa para a reunião. Reproduzível: script ad-hoc,
+reaproveita `select_cases_by_aorta_volume_percentile`/`select_cases_by_circle_count_percentile`/
+`calibrate_bbox_offsets`/`validate_coverage` já existentes, sem reprocessar nada. Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task_full_population_calibration.csv`. Nenhum
+artefato de produção alterado (`calibration_imagecas_splits_train90.json` original intacto).
+
 ## Não incluído nesta etapa / decisões em aberto
 
 - Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
