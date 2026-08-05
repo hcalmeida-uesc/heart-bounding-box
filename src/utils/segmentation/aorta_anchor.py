@@ -651,69 +651,6 @@ def calibrate_bbox_size_joint(
     }
 
 
-def compute_per_case_envelope_size(
-    records_df: pd.DataFrame, downscale_factors: tuple[float, float, float]
-) -> pd.DataFrame:
-    """Calcula, por caso e por eixo, o tamanho de envelope que aquele caso exigiria individualmente.
-
-    Pré-requisito das tarefas seguintes da divisão combinada com o orientador (reunião
-    2026-07-22: critérios de exclusão A e B, grade de varredura). Expõe por caso o mesmo cálculo
-    de offset que :func:`calibrate_bbox_offsets` já faz internamente antes de agregar (min/max)
-    entre casos — aqui sem agregação, um valor por caso. Não reprocessa nada: só lê as colunas já
-    presentes em ``records_df`` (tipicamente ``all_cases.csv``).
-
-    ``records_df`` deve estar já filtrado para os casos desejados (tipicamente ``status="ok"``) —
-    esta função não filtra por status.
-
-    Para cada eixo (y, x, z):
-
-    - ``offset_min_<eixo>`` = ``label_<eixo>_min - anchor_<eixo>`` (mesmo sinal/convenção de
-      :func:`calibrate_bbox_offsets`).
-    - ``offset_max_<eixo>`` = ``label_<eixo>_max - anchor_<eixo>``.
-    - ``envelope_extent_<eixo>`` = ``offset_max_<eixo> - offset_min_<eixo>`` — o tamanho que o bbox
-      precisaria ter, centrado na âncora, para cobrir o label daquele caso especificamente
-      (resolução reduzida).
-    - ``envelope_extent_full_res_<eixo>`` = ``envelope_extent_<eixo> * downscale_factors[eixo]``
-      (fator 1 no eixo z, já que o downscale preserva o eixo axial).
-
-    Returns:
-        DataFrame com ``img_id`` (int) e as 4 colunas acima por eixo, uma linha por caso de
-        ``records_df`` (mesma ordem).
-
-    Raises:
-        ValueError: se ``records_df`` não tiver alguma das colunas necessárias (``img_id``,
-            ``anchor_{y,x,z}``, ``label_{y,x,z}_{min,max}``) — sem fallback silencioso.
-    """
-    required_columns = {"img_id"}
-    for axis in ("y", "x", "z"):
-        required_columns.add(f"anchor_{axis}")
-        required_columns.add(f"label_{axis}_min")
-        required_columns.add(f"label_{axis}_max")
-
-    missing = sorted(required_columns - set(records_df.columns))
-    if missing:
-        raise ValueError(
-            "records_df não tem as colunas necessárias para "
-            f"compute_per_case_envelope_size: {missing}"
-        )
-
-    result = pd.DataFrame({"img_id": records_df["img_id"].astype(int).to_numpy()})
-
-    for axis, factor in zip(("y", "x", "z"), downscale_factors):
-        offset_min = records_df[f"label_{axis}_min"] - records_df[f"anchor_{axis}"]
-        offset_max = records_df[f"label_{axis}_max"] - records_df[f"anchor_{axis}"]
-        envelope_extent = offset_max - offset_min
-
-        result[f"offset_min_{axis}"] = offset_min.to_numpy(dtype=float)
-        result[f"offset_max_{axis}"] = offset_max.to_numpy(dtype=float)
-        result[f"envelope_extent_{axis}"] = envelope_extent.to_numpy(dtype=float)
-        result[f"envelope_extent_full_res_{axis}"] = (envelope_extent * factor).to_numpy(
-            dtype=float
-        )
-
-    return result
-
-
 def validate_coverage(records_df: pd.DataFrame, calibration: dict[str, Any]) -> pd.DataFrame:
     """Verifica, por caso, se o bbox calibrado (âncora + offsets fixos) cobre o label coronário.
 
