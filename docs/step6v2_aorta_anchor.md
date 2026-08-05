@@ -860,10 +860,793 @@ Reproduzível: `uv run python src/eda/measure_ambiguous_circle_candidates.py`. D
 `output/bounding_box/aorta_anchor_z_diagnosis/ambiguous_circle_candidates_summary.csv`. Nenhum
 artefato de produção alterado.
 
+## Divisão em 7 tarefas com o orientador (reunião 2026-07-22): critérios de exclusão de casos problemáticos
+
+Depois dos diagnósticos acima (2026-07-22 a 07-27, nenhuma correção proposta), a reunião com o
+orientador de 2026-07-22 dividiu o próximo passo em 7 tarefas: calcular o tamanho de envelope por
+caso (tarefa 1), testar critérios de exclusão candidatos isoladamente (tarefas 2, 3, 3b — inserida
+depois da 3), comparar/decidir entre eles (tarefa 5) e, a partir da decisão, recalibrar e validar
+(tarefas 4, 6, 7 — conteúdo exato ainda não recebido nesta sessão). Todo o código destas tarefas
+está em `src/utils/segmentation/aorta_anchor.py`; testes em `tests/test_aorta_anchor.py`.
+
+### Tarefa 1/7 — tamanho de envelope por caso (`compute_per_case_envelope_size`)
+
+`compute_per_case_envelope_size(records_df, downscale_factors)`
+(`src/utils/segmentation/aorta_anchor.py:304`) expõe, por caso e por eixo, o mesmo cálculo que
+`calibrate_bbox_offsets` já fazia internamente (`offset = label - anchor`), mas sem agregar
+min/max entre casos — o tamanho de envelope (`envelope_extent = offset_max - offset_min`) que cada
+caso exigiria individualmente, na resolução reduzida e em resolução integral. Validado contra os
+994 casos reais de `all_cases.csv` (2026-07-28): os 5 casos que definiram os extremos da
+calibração original batem exatamente (diferença 0,0) com os offsets já persistidos em
+`calibration_imagecas_splits_train90.json`.
+
+**Achado cruzado (2026-07-28):** `img_id=924` é o caso de maior `envelope_extent_z` de toda a
+população (247, resolução reduzida) — o mesmo caso já identificado no diagnóstico de 2026-07-24/25
+acima como pior excesso de cobertura em z na produção (under-tracking, só 2 círculos detectados).
+Duas métricas totalmente independentes (excesso do bbox calibrado vs. tamanho de envelope por
+caso, sem depender de calibração) concordam no mesmo caso — referência usada nas comparações
+abaixo. (Nota lateral, sem impacto na função: os 5 casos calibradores **não** são os de maior
+`envelope_extent_z` da população — `argmin/argmax_case_per_axis` pega o extremo de um lado só por
+eixo, enquanto `envelope_extent` soma os dois lados do mesmo caso; não é um bug.)
+
+### Tarefa 2/7 — critério A: percentil de `num_circles_detected`
+
+`select_cases_by_circle_count_percentile(records_df, exclusion_pct)`
+(`src/utils/segmentation/aorta_anchor.py:368`) exclui as duas caudas da distribuição de
+`num_circles_detected` (proxy de under-/over-tracking do Hough+Level Set, motivado pelo padrão em
+U do diagnóstico de 2026-07-24 acima). `exclusion_pct` total, dividido igualmente entre as caudas,
+via percentil (não contagem fixa de casos).
+
+Validação sobre os 994 casos (2026-07-28):
+
+| exclusion_pct | N excluído | Calibradores excluídos (de 934/428/90/23/44) | Caso 924 excluído? |
+|---|---|---|---|
+| 5% | 49 | 2/5 (23, 44) | Sim |
+| 10% | 99 | 4/5 (23, 44, 428, 934) | Sim |
+| 15% | 147 | 4/5 (23, 44, 428, 934) | Sim |
+| 20% | 194 | 4/5 (23, 44, 428, 934) | Sim |
+
+O caso 90 (`x_max` da calibração original, `num_circles_detected` no percentil 86,7%) nunca é
+excluído até 20%.
+
+### Tarefa 3/7 — critério B: percentil de `envelope_extent` — reclassificado como critério de curadoria de dataset (2026-07-28)
+
+`select_cases_by_envelope_size_percentile(envelope_df, exclusion_pct, axis)`
+(`src/utils/segmentation/aorta_anchor.py:431`) exclui as duas caudas da distribuição de
+`envelope_extent_{axis}` (saída da tarefa 1), um eixo por vez. Mesma lógica de divisão de caudas
+da tarefa 2, para manter os critérios comparáveis.
+
+**Reclassificação metodológica (2026-07-28, decidida ao abrir a tarefa 3b):** este critério usa
+`label_min`/`label_max` do próprio caso — ou seja, **depende do label coronário**, que só existe
+porque o ImageCAS é um dataset rotulado. Por isso só serve como critério de **curadoria de
+dataset** (decidir quais dos 1000 casos já rotulados entram no estudo, análogo a critérios de
+inclusão/exclusão de qualquer benchmark) — **não pode ser parte do pipeline determinístico**
+aplicado a uma imagem nova sem anotação, que é o objetivo do Cap. 2. Os números abaixo (já
+registrados antes desta reclassificação) não mudam — só a interpretação de para que servem.
+
+Validação sobre os 994 casos, `axis="z"` (2026-07-28):
+
+| exclusion_pct | N excluído | Calibradores excluídos | Caso 924 excluído? |
+|---|---|---|---|
+| 5% | 50 | 0/5 | Sim |
+| 10% | 97 | 0/5 | Sim |
+| 15% | 143 | 1/5 (934) | Sim |
+| 20% | 189 | 1/5 (934) | Sim |
+
+O caso 90 nunca é excluído até 20%, nem em z (`envelope_extent_z` no percentil 24,5%) nem em x
+(`envelope_extent_x` no percentil 86,3%, o eixo em que ele define o extremo original — perto do
+limiar de 20% mas não o suficiente).
+
+### Tarefa 3b/7 — critério C: percentil de `aorta_voxels` (contraponto elegível para produção)
+
+`select_cases_by_aorta_volume_percentile(records_df, exclusion_pct)`
+(`src/utils/segmentation/aorta_anchor.py:507`) — mesmo desenho do critério A, trocando
+`num_circles_detected` por `aorta_voxels` (volume da máscara da aorta segmentada). Ao contrário do
+critério B, **não depende do label coronário** — derivável só da imagem, elegível para uso no
+pipeline de produção, não só como curadoria de dataset. Motivado pelo mesmo achado do diagnóstico
+de 2026-07-25 acima (volume da máscara muito distante da referência nos casos-problema, tanto por
+under-tracking quanto por over-tracking/leak).
+
+Validação sobre os 994 casos (2026-07-28):
+
+| exclusion_pct | N excluído | Calibradores excluídos | Caso 924 excluído? |
+|---|---|---|---|
+| 5% | 50 | 3/5 (23, 44, 934) | Sim |
+| 10% | 100 | 5/5 (23, 44, 90, 428, 934) | Sim |
+| 15% | 150 | 5/5 | Sim |
+| 20% | 200 | 5/5 | Sim |
+
+Percentil de `aorta_voxels` na população (994 casos) para os 5 calibradores + caso 924:
+
+| img_id | eixo/motivo | `aorta_voxels` | percentil |
+|---|---|---|---|
+| 934 | y_min | 681.114 | 98,1% |
+| 428 | y_max/x_min | 536.221 | 96,8% |
+| 90 | x_max | 489.841 | 95,6% |
+| 23 | z_min | 66.303 | 2,1% |
+| 44 | z_max | 1.024.748 | 99,1% |
+| 924 | maior `envelope_extent_z` | 1.836 | 0,2% |
+
+**O critério C é o primeiro a capturar os 5 calibradores simultaneamente**, a partir de
+`exclusion_pct=10%` — inclusive o caso 90, que os critérios A e B nunca capturam até 20% (caso 90
+passa a ser excluído pelo critério C a partir de `exclusion_pct=9%`).
+
+### Sobreposição entre os três critérios (`exclusion_pct=10%`, checagem preliminar para a tarefa 5)
+
+Sem decidir nada ainda — só uma checagem de quanto os três critérios concordam, usando os
+resultados já obtidos acima (`N(A)=99`, `N(B)=97`, `N(C)=100`, todos com `exclusion_pct=10%`,
+`B` em `axis="z"`).
+
+**Correção (2026-07-28): a tabela original desta seção rotulava as interseções pareadas como
+"(total)" sem deixar explícito se eram interseções totais (incluindo o terceiro critério) ou as
+regiões exclusivas do diagrama de Venn de 7 partes — eram interseções *totais*, mas a rotulagem
+era ambígua. Reescrita abaixo com as duas visões separadas e sem ambiguidade; nenhum valor mudou.**
+
+**Regiões exclusivas do diagrama de Venn (7 partes, sem sobreposição entre si — a soma bate
+exatamente com o total da união A∪B∪C):**
+
+| Região | N | img_id |
+|---|---|---|
+| só A (não B, não C) | 29 | — |
+| só B (não A, não C) | 81 | — |
+| só C (não A, não B) | 29 | — |
+| A ∩ B, excluindo C | 2 | — |
+| **A ∩ C, excluindo B** | **57** | `15, 23, 25, 44, 66, 80, 111, 112, 164, 182, 191, 196, 199, 218, 225, 247, 280, 297, 301, 306, 331, 347, 368, 383, 402, 415, 421, 428, 436, 467, 508, 522, 537, 563, 575, 592, 593, 609, 631, 636, 650, 726, 738, 739, 777, 792, 816, 823, 838, 850, 864, 906, 934, 941, 951, 973, 976` |
+| B ∩ C, excluindo A | 3 | — |
+| A ∩ B ∩ C (tripla) | 11 | `47, 97, 176, 299, 601, 622, 724, 754, 790, 904, 924` |
+| **soma das 7 regiões** | **212** | igual à união A∪B∪C (212) ✓ |
+
+**Interseções pareadas totais** (inclui casos que também estão no terceiro critério — cada uma é
+a soma da região exclusiva do par + a região tripla acima):
+
+| Par | interseção total | = excl. do par + tripla | união do par | Jaccard (interseção / união) |
+|---|---|---|---|---|
+| A, C | 68 | 57 + 11 | 131 | **0,5191** |
+| A, B | 13 | 2 + 11 | 183 | 0,0710 |
+| B, C | 14 | 3 + 11 | 183 | 0,0765 |
+
+**Leitura com Jaccard (normalizada, não só contagem absoluta): A e C concordam em ~52% dos casos
+que qualquer um dos dois exclui — mais de 7× a concordância de A ou C com B (~7%)**. Confirma a
+leitura anterior (agora numericamente precisa): `num_circles_detected` (A) e `aorta_voxels` (C)
+parecem capturar um sinal parecido (ambos refletem o comportamento do rastreamento
+Hough+Level Set), enquanto `envelope_extent` (B, que usa o label) captura majoritariamente outra
+coisa.
+
+**Os 57 casos em A ∩ C excluindo B** (tabela acima) incluem **4 dos 5 calibradores** (23, 44, 428,
+934) — só o caso 90 fica de fora, mas por um motivo diferente: ele está em "só C" (não em A nem em
+B a 10%, ver tarefas 2/3 acima), não em A∩C. **O caso 924 não está nesse grupo** — ele está na
+região tripla A∩B∩C (é excluído pelos três critérios simultaneamente a 10%), não exclusivo de
+A∩C. Interpretação e decisão sobre qual(is) critério usar ficam para a tarefa 5 — não avaliado
+aqui.
+
+### Tarefa 4/7 — recalibração e cobertura sobre o subconjunto filtrado
+
+`evaluate_exclusion_criterion(records_df, train_ids, val_ids, test_ids, criterion_column,
+exclusion_pct, downscale_factors)` (`src/utils/segmentation/aorta_anchor.py:677`) recalibra
+`calibrate_bbox_offsets` só com o treino **depois de filtrado** por um critério de exclusão, e
+avalia `validate_coverage` sobre val+test filtrados pelo mesmo limiar. Ponto de desenho importante
+(pedido explicitamente nesta tarefa): o limiar (percentil inferior/superior de
+`criterion_column`) é calculado **só com os 88 casos de treino**, e o valor absoluto resultante —
+não um novo percentil — é aplicado igualmente aos três splits, para não vazar informação de
+val/test na definição do corte. Só usa `aorta_voxels` (critério C) e `num_circles_detected`
+(critério A) — **o critério B (`envelope_extent`) fica de fora**, por depender do label
+coronário (reclassificado como curadoria de dataset na tarefa 3b, não elegível para pipeline).
+
+**Duas ressalvas de leitura, importantes para não interpretar mal a tabela abaixo:**
+
+1. **`exclusion_pct=0` não significa "nenhum caso excluído".** O limiar em `exclusion_pct=0` é o
+   mínimo/máximo exato dos 88 casos de treino — mas essa faixa pode não cobrir toda a distribuição
+   de val/test (906 casos), do mesmo jeito que o offset do bbox já mostrou (seção "Achado
+   bloqueante novo" acima: o limite calibrado com 88 casos fica aquém do extremo real dos 994
+   processados). Por isso `n_val_excluded`/`n_test_excluded` já são maiores que zero em
+   `exclusion_pct=0%` na tabela abaixo — são casos fora do range jamais visto no treino, não uma
+   exclusão intencional.
+2. **`Rv` aqui é uma aproximação por contagem de voxels** (`volume_shape_{y,x,z}` já persistido,
+   escalado para resolução integral por `downscale_factors`) — não o volume físico (mm³) real
+   calculado com o espaçamento de cada NIfTI. **Correção (2026-07-28, ver "Esclarecimento 1"
+   abaixo): checado com espaçamento real e o proxy de voxels dá o número idêntico** — a ressalva
+   original aqui superestimava o risco dessa aproximação.
+
+### Esclarecimentos pós-tarefa 4 (2026-07-28)
+
+Dois pontos levantados depois da tabela acima, checados pontualmente (sem gerar nova grade de
+sweep), antes da reunião de quarta-feira.
+
+**Esclarecimento 1 — `Rv` com volume físico real (spacing por caso) para o ponto de maior
+interesse (critério C, `exclusion_pct=5%`):** recalculado lendo o cabeçalho NIfTI (`shape` +
+`get_zooms()`, sem carregar o volume completo) dos 932 casos incluídos nesse corte. Resultado:
+**`Rv` médio físico = 16,11% — idêntico ao proxy de voxels já reportado** (diferença média
+`-0,00000002`, máxima `0,00000007`, ruído de ponto flutuante). Não é coincidência: como o bbox e o
+volume original são medidos no mesmo sistema de coordenadas do mesmo caso, o espaçamento **cancela
+algebricamente** na razão `Rv = 1 - V_bbox/V_original` — `V_bbox/V_original` depende só da razão
+entre extents em voxels, não do espaçamento físico, **desde que a reconstrução do shape em
+resolução integral a partir do shape reduzido seja exata**. Confirmado empiricamente: nos 932
+casos, `volume_shape_{y,x,z} × downscale_factors` bate **exatamente** com o shape real do NIfTI em
+100% dos casos (0 discrepâncias) — x/y por serem reduzidos por um fator inteiro exato (512/2=256),
+z por não ser reduzido (`downscale_factors[2]=1`). **Conclusão: a afirmação "`Rv` mais que dobra"
+(6,64%→16,11%) se sustenta em unidade física, não é um artefato da aproximação por voxels — os dois
+números são a mesma medida.** Script ad-hoc, dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task4_physical_rv_check_criterion_c_5pct.csv`.
+
+**Esclarecimento 2 — por que `coverage_z` cai de 99,62% (15%) para 96,95% (20%) no critério A:**
+recalibrando e validando cobertura pontualmente nos dois cortes (sem gerar grade nova),
+`bbox_extent_full_resolution.z` encolhe de **290,0 para 268,0** (−22,0 voxels, resolução integral)
+entre os dois cortes — o limite superior do bbox em z (`anchor_z + offset_max_z`) cai exatamente
+22,0 unidades para todo caso (offset fixo, o mesmo deslocamento em todos), porque o caso de treino
+que definia o `z_max` aos 15% passou a ser excluído aos 20% (mais um outlier de
+`num_circles_detected` retirado do treino), e o próximo caso mais extremo define um `offset_max_z`
+menor.
+
+Isso **exclui os 21 casos de val/test cujo `label_z_max` caía exatamente na faixa de 22 voxels que
+deixou de estar coberta** — todos os 21 (`5, 16, 103, 114, 202, 240, 273, 321, 418, 419, 482, 499,
+519, 529, 534, 720, 733, 762, 807, 926, 943`) eram `covered_z=True` aos 15% e viram `covered_z=
+False` aos 20%, **permanecendo avaliados nos dois cortes** (não são casos que saíram de escopo — é
+falha de cobertura genuína, causada pelo encolhimento do bbox). O caso mais marginal é o `img_id=5`
+(`label_z_max=189,0` vs. novo teto do bbox em `188,9` — falha por 0,1 voxel).
+
+Confirma a hipótese: **sim, o bbox ficou pequeno demais em z para os extremos remanescentes de
+val/test que não foram excluídos do treino** — a exclusão de outliers de `num_circles_detected` no
+treino reduz o bbox calibrado, mas não tem como garantir que os casos de val/test que dependiam
+justamente daquela folga (agora removida) também sejam excluídos — eles continuam no conjunto
+avaliado e agora falham.
+
+Efeito secundário que amplifica a queda (não é a causa raiz, mas soma na mesma direção): dos 906
+casos de val/test, **29 saem do conjunto avaliado entre 15% e 20%** (mais casos de val/test caem
+fora do range do critério A conforme o corte aperta) — desses 29, **28 eram `covered_z=True`** e só
+1 era `covered_z=False`, então a saída desses casos do denominador também puxa a média para baixo
+(remove desproporcionalmente mais casos "bons" do que "ruins"). Contagens exatas: `N` avaliado
+782→753, `covered_z` 779→730 (`-49` = `-21` que viram falha + `-28` que saíram cobertos),
+`uncovered_z` 3→23 (`+21` novas falhas `-1` que saiu já falhando = `+20`).
+
+Script ad-hoc, sem gerar CSV novo (checagem pontual, não grade de sweep), reaproveitando só
+`calibrate_bbox_offsets`/`validate_coverage` já existentes sobre `all_cases.csv` +
+`config/imagecas_splits_train90.json`. Nenhuma função nem resultado já commitado foi alterado.
+
+**Validação sobre os 994 casos, `downscale_factors=(2, 2, 1)`, `exclusion_pct` em
+[0, 5, 10, 15, 20]:**
+
+**Critério C (`aorta_voxels`):**
+
+| exclusion_pct | N excl. treino/val/test | bbox full-res (y×x×z) | Rv médio | Rv mediana | Cobertura conjunta (N avaliado) |
+|---|---|---|---|---|---|
+| 0% | 0 / 3 / 22 | 480,5 × 414,7 × 312,6 | 6,64% | 13,60% | 96,94% (881) |
+| **5%** | 6 / 10 / 46 | 465,9 × 414,7 × 290,0 | **16,11%** | 22,26% | **96,59%** (850) |
+| 10% | 10 / 17 / 81 | 457,8 × 386,5 × 275,9 | 26,94% | 32,28% | 94,18% (808) |
+| 15% | 14 / 23 / 106 | 457,8 × 368,3 × 275,9 | 30,27% | 35,46% | 92,54% (777) |
+| 20% | 18 / 34 / 151 | 457,8 × 368,3 × 268,0 | 32,27% | 37,31% | 92,93% (721) |
+
+**Critério A (`num_circles_detected`), mesma grade:**
+
+| exclusion_pct | N excl. treino/val/test | bbox full-res (y×x×z) | Rv médio | Rv mediana | Cobertura conjunta (N avaliado) |
+|---|---|---|---|---|---|
+| 0% | 0 / 4 / 22 | 480,5 × 414,7 × 312,6 | 6,59% | 13,60% | 97,05% (880) |
+| **5%** | 6 / 11 / 65 | 472,4 × 386,5 × 297,1 | **18,96%** | 24,75% | **95,54%** (830) |
+| 10% | 10 / 19 / 91 | 472,4 × 386,5 × 297,1 | 19,30% | 24,75% | 95,48% (796) |
+| 15% | 12 / 23 / 101 | 457,8 × 386,5 × 290,0 | 23,65% | 28,81% | 94,88% (782) |
+| 20% | 17 / 30 / 123 | 457,8 × 386,5 × 268,0 | 29,39% | 34,22% | 93,23% (753) |
+
+**Ponto de maior interesse, sem decidir nada (destacado em negrito nas duas tabelas): `exclusion_
+pct=5%` do critério C** — `Rv` mais que dobra (6,64%→16,11%) com queda de cobertura de só 0,35pp
+(96,94%→96,59%). O próximo corte (5%→10%, critério C) tem custo bem pior por unidade de `Rv`
+ganho: `Rv` quase dobra de novo (16,11%→26,94%) mas a cobertura cai 2,4pp — mais de 6× o custo
+marginal do primeiro corte. O critério A em 5% ganha `Rv` parecido (6,59%→18,96%) mas com o dobro
+do custo de cobertura (1,5pp) do que o critério C no mesmo corte — nessa grade, **C parece ter uma
+relação `Rv`/cobertura mais favorável que A no corte mais brando**. Interessante notar também que,
+no critério A, o `bbox` e o `Rv` **não mudam entre 5% e 10%** — os mesmos casos definem os
+extremos em ambos os cortes. Nenhuma decisão tomada aqui — tabela completa para a reunião de
+quarta-feira.
+
+Reproduzível: script usado para gerar a tabela não versionado (rodado ad-hoc, reaproveita só
+`evaluate_exclusion_criterion` sobre `all_cases.csv` + `config/imagecas_splits_train90.json`, sem
+reprocessar nada). Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task4_exclusion_criterion_evaluation.csv`. Nenhum
+artefato de produção alterado (`calibration_imagecas_splits_train90.json` original intacto) —
+teste exploratório.
+
+### Tarefa nova (esclarecimento pós-reunião, 2026-07-28/29): bbox por percentil, com perda parcial em vez de cobertura binária
+
+Reteste direto do experimento de 2026-07-17 ("Explorado: recalibração por percentil em vez de
+min/max" acima, que concluiu não haver meio-termo viável) — mas agora medindo **perda parcial**
+por caso, não só cobertura binária conjunta/`Rv`. Motivação: o achado de 2026-07-17 usava cobertura
+**binária** (um único voxel do label fora do bbox já conta como falha total do caso) — uma métrica
+muito rígida que pode mascarar um meio-termo real quando a maior parte da "falha" é, na prática,
+perda pequena de uma pequena fração da árvore, não perda catastrófica.
+
+`evaluate_percentile_bbox_tradeoff(records_df, train_ids, val_ids, test_ids, offset_percentile,
+downscale_factors, exclude_via_criterion=None, exclusion_pct=None)`
+(`src/utils/segmentation/aorta_anchor.py:873`) define o bbox por um percentil do offset em cada
+eixo (não mínimo/máximo absoluto) sobre o treino — opcionalmente já filtrado por um critério de
+exclusão (reaproveita a mesma lógica de limiar de
+:func:`evaluate_exclusion_criterion`/tarefa 4, extraída para um helper compartilhado
+`_filter_splits_by_train_threshold`, `src/utils/segmentation/aorta_anchor.py:677`, sem alterar o
+comportamento já testado dessa função). `offset_percentile=100` reproduz `calibrate_bbox_offsets`
+exatamente (regressão coberta em teste).
+
+**Ressalva importante sobre a perda parcial (não é a máscara real do label):** `records_df` não
+guarda a máscara voxel a voxel da árvore coronária — só `label_{y,x,z}_min/max`, os limites da
+caixa delimitadora (mesma limitação de todas as tarefas anteriores desta linha, que só agregam
+sobre `all_cases.csv`/`calibration_*.json`/`coverage_*.csv` já existentes, sem reler NIfTI). Por
+isso a perda é aproximada tratando a árvore coronária como um **bloco retangular preenchendo sua
+própria caixa delimitadora** — a mesma aproximação que `validate_coverage` já usa para o teste
+binário, estendida para uma fração contínua (`perda = 1 - volume_interseção/volume_caixa_label`).
+**Não é a fração real de voxels perdidos** — a árvore coronária é uma estrutura fina e ramificada,
+não um bloco sólido, então o proxy provavelmente **superestima** a perda real em casos onde só a
+"casca" da caixa delimitadora é cortada mas a árvore em si (concentrada mais ao centro) continua
+intacta. Se for necessário o número exato de voxels perdidos, precisaria reler a máscara do label
+por caso (reprocessamento fora do escopo deste esclarecimento pontual — viável como tarefa
+separada se for útil para a reunião).
+
+**Validação sobre os 906 casos de val+test (`offset_percentile` em
+[100, 97.5, 95, 90, 85, 80]), duas grades:**
+
+**(a) Sem filtro de caso (reteste direto de 2026-07-17):**
+
+| offset_percentile | bbox full-res (y×x×z) | Rv médio | perda média | perda mediana | perda=0 | perda <5% | perda 5-20% | perda ≥20% |
+|---|---|---|---|---|---|---|---|---|
+| 100% | 480,5 × 414,7 × 312,6 | 6,70% | 0,47% | 0,00% | 862 | 23 | 15 | 6 |
+| 97,5% | 428,4 × 364,4 × 284,8 | 33,41% | 1,29% | 0,00% | 765 | 71 | 54 | 16 |
+| 95% | 407,2 × 357,0 × 253,1 | 44,90% | 2,16% | 0,00% | 688 | 113 | 75 | 30 |
+| 90% | 386,0 × 334,3 × 236,3 | 54,33% | 3,83% | 0,00% | 540 | 181 | 137 | 48 |
+| 85% | 373,7 × 318,3 × 226,0 | 59,73% | 5,59% | 0,83% | 414 | 211 | 209 | 72 |
+| 80% | 361,1 × 307,5 × 217,3 | 63,86% | 7,51% | 3,14% | 303 | 230 | 274 | 99 |
+
+**(b) Com filtro prévio pelo critério C a 5% (ponto de melhor custo-benefício da tarefa 4), mesma grade (N=850 avaliados):**
+
+| offset_percentile | bbox full-res (y×x×z) | Rv médio | perda média | perda mediana | perda=0 | perda <5% | perda 5-20% | perda ≥20% |
+|---|---|---|---|---|---|---|---|---|
+| 100% | 465,9 × 414,7 × 290,0 | 16,11% | 0,25% | 0,00% | 821 | 19 | 7 | 3 |
+| 97,5% | 426,3 × 361,0 × 252,0 | 41,96% | 1,02% | 0,00% | 719 | 74 | 48 | 9 |
+| 95% | 408,5 × 357,2 × 243,1 | 46,90% | 1,40% | 0,00% | 657 | 112 | 72 | 9 |
+| 90% | 385,5 × 333,4 × 230,7 | 55,62% | 3,08% | 0,00% | 500 | 188 | 135 | 27 |
+| 85% | 374,2 × 319,5 × 223,6 | 59,98% | 4,52% | 0,55% | 399 | 202 | 206 | 43 |
+| 80% | 362,7 × 305,6 × 216,3 | 64,12% | 6,50% | 2,83% | 281 | 234 | 260 | 75 |
+
+**Leitura, sem decidir nada:**
+
+- **O resultado negativo de 2026-07-17 ("sem meio-termo viável") era específico da métrica
+  binária, não se sustenta do mesmo jeito quando a métrica é perda parcial.** Em 100%
+  (arm sem filtro), `n_loss_zero`=862/906=95,14% — bate exatamente com a cobertura conjunta
+  binária já documentada (95,14%), confirmando que as duas métricas coincidem no nível de
+  referência. Mas em **97,5%**, onde a cobertura binária conjunta já tinha caído para um nível
+  ruim (documentado em 2026-07-17), a mediana da perda parcial continua **0%** e **84,4% dos
+  casos (765/906) ainda têm perda zero** — a maior parte dos casos que "falhariam" no critério
+  binário só perde uma fração pequena da árvore, não a árvore inteira. Em **90%**, com `Rv` já em
+  54,33% (um ganho grande), a perda média é de só 3,83% e a mediana continua **0%** — só 48 dos
+  906 casos (5,3%) perdem ≥20% da árvore (pelo proxy da caixa delimitadora).
+- **Filtrar primeiro pelo critério C (arm b) desloca a curva favoravelmente, mas não
+  dramaticamente**: em todo nível de percentil, o `Rv` fica mais alto e a cauda de perda alta
+  (`perda ≥20%`) fica menor com o filtro prévio (ex.: em 90%, 27 casos com filtro vs. 48 sem) —
+  consistente com a tarefa 4 (remover outliers de segmentação ajuda), mas o formato geral da curva
+  (perda mediana 0% até uns 85-90%, crescendo depois) é parecido nas duas grades.
+- Nenhuma decisão tomada aqui — as duas curvas completas ficam disponíveis para a reunião. O
+  achado mais importante para discutir é a diferença de leitura entre cobertura binária (achado de
+  2026-07-17: "sem meio-termo") e perda parcial (aqui: parece haver um meio-termo bem mais
+  favorável do que a métrica binária sozinha sugeria) — mas isso depende de aceitar a aproximação
+  de bloco retangular como proxy razoável da perda real, o que não está confirmado contra a
+  máscara voxel a voxel.
+
+Reproduzível: script ad-hoc não versionado, reaproveita só `evaluate_percentile_bbox_tradeoff`
+sobre `all_cases.csv` + `config/imagecas_splits_train90.json`, sem reprocessar nada. Dados salvos
+em `output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff.csv`. Nenhum
+artefato de produção alterado.
+
+### Correção (2026-07-28/29): perda real (voxel a voxel) vs. proxy geométrico — comparação lado a lado
+
+A leitura acima (seção anterior) usava só o **proxy geométrico** (árvore = bloco retangular
+preenchendo sua caixa delimitadora). A pedido, releu-se a máscara real do label coronário
+(reduzida à mesma resolução de `label_{y,x,z}_min/max`, via `downscale_image_ndi(order=0)`) para
+os 906 casos de val+test, e recalculou-se a perda real: voxels do label que caem fora do bbox
+dividido pelo total de voxels do label daquele caso — **não mais aproximação de caixa**. Custo:
+~906 leituras de NIfTI + downscale, ~1.730s (~29 min) de processamento, cacheado em
+`output/bounding_box/aorta_anchor_z_diagnosis/label_voxel_cache_valtest.pkl` para não precisar
+reprocessar de novo.
+
+**Por que os dois podem divergir**: o proxy assume que a árvore coronária ocupa uniformemente
+toda a sua caixa delimitadora — mas é uma estrutura fina e ramificada, tipicamente mais concentrada
+perto do centro/tronco principal do que nos cantos/bordas da caixa. Cortar uma fatia da caixa
+delimitadora pode remover **pouco ou nenhum voxel real** da árvore (se o corte só afeta uma região
+onde a árvore não passa) ou remover **uma fração desproporcionalmente grande** (se o corte
+atravessa um ramo principal) — o proxy não distingue os dois casos, só mede geometria da caixa.
+
+**(a) Sem filtro de caso** — `proxy` = já reportado acima; `real` = voxel a voxel, 906 casos:
+
+| offset_percentile | Rv médio | perda mediana (proxy / real) | perda média (proxy / real) | perda=0 (proxy / real) | perda <5% (proxy / real) | perda 5-20% (proxy / real) | perda ≥20% (proxy / real) |
+|---|---|---|---|---|---|---|---|
+| 100% | 6,70% | 0,00% / 0,00% | 0,47% / 0,39% | 862 / 862 | 23 / 26 | 15 / 12 | 6 / 6 |
+| 97,5% | 33,41% | 0,00% / 0,00% | 1,29% / 1,17% | 765 / 765 | 71 / 87 | 54 / 39 | 16 / 15 |
+| 95% | 44,90% | 0,00% / 0,00% | 2,16% / 1,97% | 688 / 688 | 113 / 141 | 75 / 46 | 30 / 31 |
+| 90% | 54,33% | 0,00% / 0,00% | 3,83% / 3,49% | 540 / 540 | 181 / 228 | 137 / 88 | 48 / **50** |
+| 85% | 59,73% | 0,83% / 0,18% | 5,59% / 5,19% | 414 / 414 | 211 / 276 | 209 / 135 | 72 / **81** |
+| 80% | 63,86% | 3,14% / 1,39% | 7,51% / 7,01% | 303 / 303 | 230 / 316 | 274 / 180 | 99 / **107** |
+
+**(b) Com filtro prévio pelo critério C a 5%** (N=850):
+
+| offset_percentile | Rv médio | perda mediana (proxy / real) | perda média (proxy / real) | perda=0 (proxy / real) | perda <5% (proxy / real) | perda 5-20% (proxy / real) | perda ≥20% (proxy / real) |
+|---|---|---|---|---|---|---|---|
+| 100% | 16,11% | 0,00% / 0,00% | 0,25% / 0,24% | 821 / 821 | 19 / 18 | 7 / 8 | 3 / 3 |
+| 97,5% | 41,96% | 0,00% / 0,00% | 1,02% / 0,95% | 719 / 719 | 74 / 91 | 48 / 30 | 9 / 10 |
+| 95% | 46,90% | 0,00% / 0,00% | 1,40% / 1,24% | 657 / 657 | 112 / 143 | 72 / 37 | 9 / **13** |
+| 90% | 55,62% | 0,00% / 0,00% | 3,08% / 2,81% | 500 / 500 | 188 / 225 | 135 / 96 | 27 / 29 |
+| 85% | 59,98% | 0,55% / 0,10% | 4,52% / 4,16% | 399 / 399 | 202 / 270 | 206 / 123 | 43 / **58** |
+| 80% | 64,12% | 2,83% / 1,30% | 6,50% / 6,13% | 281 / 281 | 234 / 308 | 260 / 178 | 75 / **83** |
+
+**Leitura — o proxy não erra numa direção só, e a correção muda a conclusão da seção anterior:**
+
+1. **`perda=0` é idêntico entre proxy e real em toda a grade (862=862, 765=765, ..., 821=821...)**
+   — não é coincidência: quando a caixa delimitadora do label cabe inteira dentro do bbox
+   calibrado, todo voxel real também cabe, então os dois métodos concordam **estruturalmente**
+   nesse caso. Essa parte da leitura anterior (cobertura zero-perda igual à cobertura binária em
+   100%, 95,14%) continua válida.
+2. **Na faixa intermediária (perda `<5%` e `5-20%`), o proxy superestima a perda**: real tem
+   sistematicamente mais casos em `<5%` e menos em `5-20%` do que o proxy (ex.: 90% sem filtro:
+   proxy tem 181/137 nas duas faixas, real tem 228/88 — bem mais casos migram para a faixa "quase
+   sem perda"). Confirma a hipótese: a árvore fina não preenche a caixa, então um corte parcial da
+   caixa tende a perder menos voxels reais do que a geometria sozinha sugere.
+3. **Mas na cauda (`perda ≥20%`), a partir de ~90% de percentil, o real é igual ou PIOR que o
+   proxy** (destacado em negrito acima) — na grade sem filtro: 90%→+2 casos reais a mais, 85%→+9,
+   80%→+8; na grade filtrada: 85%→+15 casos reais a mais (58 vs. 43, a maior divergência de toda a
+   tabela). Ou seja, **o proxy subestima o número de casos com perda grave nos cortes mais
+   agressivos** — o oposto do que a leitura anterior (só com o proxy) sugeria para a cauda.
+4. **Conclusão revisada**: a leitura da seção anterior ("parece haver um meio-termo bem mais
+   favorável do que a métrica binária sugeria") **se sustenta para o grosso dos casos** — a maioria
+   ainda tem perda zero ou pequena, consistente e às vezes até melhor que o proxy indicava. Mas
+   **não se sustenta igualmente para a cauda de casos graves**: em cortes mais agressivos (85-90% e
+   abaixo), há mais casos reais perdendo ≥20% da árvore do que o proxy indicava — o meio-termo é
+   real para a maior parte da população, mas o risco de perda grave numa fração pequena de casos é
+   **subestimado**, não superestimado, pelo proxy geométrico.
+
+Reproduzível: script ad-hoc não versionado, reaproveita `evaluate_percentile_bbox_tradeoff` (Rv/
+bbox, idênticos ao proxy) + leitura/downscale do label real (cache em `label_voxel_cache_valtest.
+pkl`) para a perda exata. Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff_real_vs_proxy.csv`.
+Nenhum artefato de produção alterado.
+
+### Fechamento da tarefa 5 (2026-07-29): os 13 casos da cauda severa no ponto recomendado (critério C 5% + `offset_percentile=95%`)
+
+Identificação nominal, sem reprocessar (reaproveita o cache de máscaras da seção anterior), dos 13
+casos com perda real ≥20% especificamente no ponto de maior interesse combinado — critério C a 5%
+de exclusão + bbox por percentil 95% (`arm` "com filtro critério C 5%", `offset_percentile=95`,
+`bbox_z_full=243,1`, `Rv=46,90%`, ver tabela (b) acima).
+
+| img_id | perda real | split | conhecido? |
+|---|---|---|---|
+| 132 | 61,21% | test | novo |
+| 191 | 53,20% | test | novo |
+| 601 | 49,86% | test | novo |
+| 941 | 47,62% | test | novo |
+| 754 | 39,37% | test | novo |
+| 321 | 37,82% | test | novo |
+| 976 | 30,86% | test | novo |
+| 499 | 29,95% | test | novo |
+| 554 | 28,30% | test | novo |
+| 529 | 27,97% | test | novo |
+| 401 | 22,34% | val | novo |
+| 202 | 21,40% | test | novo |
+| 246 | 20,67% | test | novo |
+
+**Nenhum dos 13 coincide com os 5 calibradores originais (934, 428, 90, 23, 44) nem com os 5
+piores casos de cobertura já inspecionados visualmente (622, 196, 790, 924, 777)** — a cauda
+severa neste ponto é inteiramente formada por casos ainda não caracterizados nesta investigação
+(12 de test, 1 de val — proporção compatível com o tamanho dos splits, 700 vs. 210).
+
+**`num_circles_detected`/`aorta_voxels` dos 13, e proximidade do limiar do critério C
+(`[103.452, 675.318]` voxels, calculado só no treino filtrado a 5%):**
+
+| img_id | `num_circles_detected` (percentil pop.) | `aorta_voxels` (percentil pop.) | margem até o limiar mais próximo |
+|---|---|---|---|
+| 132 | 47 (2,6%) | 118.395 (7,0%) | **14.943 acima do limiar inferior** (2,6% da faixa) |
+| 246 | 55 (3,4%) | 146.144 (17,2%) | 42.692 acima do inferior (7,5% da faixa) |
+| 601 | 183 (97,5%) | 658.323 (97,9%) | **16.995 abaixo do limiar superior** (3,0% da faixa) |
+| 976 | 214 (98,8%) | 655.260 (97,8%) | **20.058 abaixo do superior** (3,5% da faixa) |
+| 554 | 156 (94,8%) | 622.614 (97,6%) | 52.704 abaixo do superior (9,2% da faixa) |
+| 529 | 147 (90,9%) | 597.836 (97,3%) | 77.482 abaixo do superior (13,6% da faixa) |
+| 754 | 232 (99,4%) | 587.670 (97,1%) | 87.648 abaixo do superior (15,3% da faixa) |
+| 941 | 184 (97,7%) | 485.459 (95,1%) | 189.859 abaixo do superior (33,2% da faixa) |
+| 499 | 140 (87,5%) | 430.596 (91,0%) | 244.722 abaixo do superior (42,8% da faixa) |
+| 401 | 161 (95,6%) | 265.993 (69,8%) | 162.541 acima do inferior (28,4% da faixa) |
+| 202 | 107 (51,3%) | 226.840 (57,5%) | 123.388 acima do inferior (21,6% da faixa) |
+| 321 | 116 (63,8%) | 225.288 (56,5%) | 121.836 acima do inferior (21,3% da faixa) |
+| 191 | 231 (99,2%) | 567.766 (97,0%) | 107.552 abaixo do superior (18,8% da faixa) |
+
+(faixa total do limiar = 675.318 − 103.452 = 571.866 voxels; "% da faixa" = margem ÷ faixa total)
+
+**Leitura, sem decidir nada:**
+
+- **Todos os 13 estão dentro do limiar do critério C** (nenhum deveria ter sido excluído pela
+  regra atual) — a pergunta é se o limiar está "frouxo" para alguns deles especificamente, ou se é
+  um mecanismo de falha diferente que `aorta_voxels` não captura.
+- **5 casos estão relativamente perto da borda do limiar** (margem ≤10% da faixa): 132 e 246 perto
+  do limiar inferior (under-tracking, poucos círculos/máscara pequena — mesmo perfil dos casos
+  924/777 já conhecidos), e 601, 976, 554 perto do limiar superior (over-tracking/leak, muitos
+  círculos/máscara grande — mesmo perfil dos casos 622/196 já conhecidos). Apertar o corte de 5%
+  para algo como 7-10% provavelmente capturaria esses 5.
+- **8 casos NÃO estão perto de nenhuma borda** (margem >13% da faixa, alguns >30-40%: 941, 499,
+  754, 529, 401, 202, 321, 191) — `aorta_voxels` desses casos é "normal" o suficiente para não ser
+  candidato a exclusão por percentil, mesmo apertando bastante o corte. Isso sugere que, para pelo
+  menos parte destes 8, a perda severa em z **não é explicada pelo mesmo mecanismo** (volume total
+  da máscara da aorta) que motivou o critério C — pode ser variabilidade anatômica real, ou um
+  padrão de falha ainda não identificado nos diagnósticos anteriores (nenhum desses 8 apareceu nas
+  listas de "piores casos" já investigadas). **Não caracterizado além disso aqui** — candidato a
+  inspeção visual futura, se a reunião decidir que vale a pena.
+
+Reproduzível: script ad-hoc, reaproveita o cache `label_voxel_cache_valtest.pkl` (sem reler NIfTI
+de novo) + `all_cases.csv`. Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task5_severe_tail_case_c5_p95.csv`. Nenhum artefato
+de produção alterado.
+
+## Calibração sobre população inteira, garantia de cobertura total (2026-07-29)
+
+Tarefa fora da numeração 1-7, motivada pelo esclarecimento do objetivo real do bbox: a premissa é
+**cobertura de 100% dos labels, inegociável** (o bbox existe para permitir maior resolução por
+imagem dentro do mesmo orçamento de VRAM, não para descartar anotação alguma) — diferente do
+desenho das tarefas 1-5, que calibravam só no split de treino e mediam cobertura/perda em val/test
+como teste de generalização. Aqui não há mais essa distinção: `calibrate_bbox_offsets` é aplicada
+sobre a **população inteira filtrada pelo critério de qualidade** (treino+val+test juntos, sem
+holdout), de modo que a cobertura de 100% é garantida **por construção** (o mínimo/máximo vem da
+mesma população que ele cobre) — qualquer caso não coberto sinalizaria bug, não resultado
+esperado.
+
+**Método**: `select_cases_by_aorta_volume_percentile`/`select_cases_by_circle_count_percentile`
+(critérios C/A, sem alteração) aplicados aos 994 casos inteiros (não só treino);
+`calibrate_bbox_offsets` sobre o conjunto filtrado resultante inteiro; `validate_coverage` sobre
+esse mesmo conjunto (não um holdout) só como checagem de sanidade. `Rv` por caso via
+`volume_shape_{y,x,z}` (mesmo proxy de voxels já usado nas tarefas 4/5, confirmado equivalente ao
+volume físico real). Sem reprocessar segmentação — tudo já está em `all_cases.csv`.
+
+**Confirmação de sanidade: cobertura = 100,0000% em todas as 10 combinações testadas** (2
+critérios × 5 níveis de `exclusion_pct`) — nenhum caso não coberto em nenhum ponto, como esperado
+por construção.
+
+| critério | exclusion_pct | N excluído (qualidade) | bbox full-res (y×x×z) | `Rv` médio | `Rv` mediana | `Rv` mín/máx | casos com `Rv`<0 | N final (de 1000) |
+|---|---|---|---|---|---|---|---|---|
+| C (`aorta_voxels`) | 0% | 0 | 550,8 × 621,1 × 399,9 | **−104,94%** | −89,78% | −214,4% / −88,4% | 994/994 (100%) | 994 |
+| C | 5% | 50 | 550,8 × 589,3 × 320,5 | **−56,06%** | −44,30% | −139,1% / −43,3% | 944/944 (100%) | 944 |
+| C | 10% | 100 | 530,6 × 589,3 × 302,1 | **−41,56%** | −31,04% | −92,7% / −30,1% | 894/894 (100%) | 894 |
+| C | 15% | 150 | 495,2 × 449,7 × 290,9 | 2,88% | 10,14% | −32,2% / 10,8% | 257/844 (30,5%) | 844 |
+| C | 20% | 200 | 495,1 × 449,7 × 290,9 | 2,97% | 10,16% | −23,5% / 10,8% | 242/794 (30,5%) | 794 |
+| A (`num_circles_detected`) | 0% | 0 | 550,8 × 621,1 × 399,9 | **−104,94%** | −89,78% | −214,4% / −88,4% | 994/994 (100%) | 994 |
+| A | 5% | 49 | 530,6 × 589,3 × 302,7 | **−41,98%** | −31,31% | −117,5% / −30,4% | 945/945 (100%) | 945 |
+| A | 10% | 99 | 495,2 × 449,7 × 302,1 | −0,75% | 6,68% | −37,2% / 7,4% | 299/895 (33,4%) | 895 |
+| A | 15% | 147 | 495,2 × 449,7 × 302,1 | −0,48% | 6,68% | −37,2% / 7,4% | 277/847 (32,7%) | 847 |
+| A | 20% | 194 | 495,2 × 449,7 × 302,1 | −0,39% | 6,68% | −37,2% / 7,4% | 260/800 (32,5%) | 800 |
+
+(N final de 1000 = 1000 − 6 falhas de detecção da aorta já conhecidas − N excluído pelo filtro de
+qualidade nesse corte.)
+
+**Leitura, sem decidir nada:**
+
+- **`Rv` é negativo em 7 das 10 combinações testadas — inclusive em 100% dos casos individuais em
+  `exclusion_pct` 0% e 5%, para os dois critérios.** `Rv` negativo significa que o bbox calibrado é
+  **maior que o volume original daquele caso** (o "recorte" na verdade aumentaria a imagem, não
+  reduziria) — não é um resultado marginal, é a maioria ou totalidade da população nos cortes mais
+  brandos.
+- **Mesmo no corte mais agressivo testado (20% de exclusão), `Rv` médio mal passa de 3%** (critério
+  C) **ou continua negativo** (critério A, −0,39%) — e ainda assim **~30-33% dos casos individuais
+  continuam com `Rv` negativo**, mesmo depois de excluir a quinta parte da população por qualidade
+  de segmentação.
+- **Causa provável (mesma família do achado bloqueante original)**: calibrar sobre uma população
+  muito maior (794-994 casos aqui, contra 82-88 casos de treino nas tarefas 1-5) captura extremos
+  reais mais distantes — quanto maior a amostra usada para o mínimo/máximo, mais extremo o valor
+  observado tende a ser. O bbox por mínimo/máximo sobre a população inteira precisa satisfazer
+  simultaneamente o pior caso de cada eixo entre **quase mil pacientes**, não só 88 — o mesmo
+  mecanismo já documentado na seção "Achado bloqueante novo" acima, mas agravado pela população
+  maior.
+- **Isso ameaça diretamente a premissa que motivou esta tarefa** (permitir maior resolução por
+  imagem dentro do mesmo orçamento de VRAM): garantir cobertura de 100% por mínimo/máximo simples
+  sobre a população inteira, mesmo depois de filtrar os piores 20% por qualidade de segmentação,
+  não produz redução de volume que valha a pena — o ganho de eficiência computacional (a segunda
+  metade da hipótese central do capítulo) não se sustenta com este método, nesta forma.
+- **N final do dataset** (1000 menos falhas de detecção da aorta menos exclusão de qualidade)
+  varia de 994 (sem filtro) a 794/800 (20% de exclusão) — este é o tamanho de dataset sobre o qual
+  o Capítulo 1 precisaria ser retreinado, dependendo do corte final escolhido.
+
+Nenhuma decisão tomada aqui — tabela completa para a reunião. Reproduzível: script ad-hoc,
+reaproveita `select_cases_by_aorta_volume_percentile`/`select_cases_by_circle_count_percentile`/
+`calibrate_bbox_offsets`/`validate_coverage` já existentes, sem reprocessar nada. Dados salvos em
+`output/bounding_box/aorta_anchor_z_diagnosis/task_full_population_calibration.csv`. Nenhum
+artefato de produção alterado (`calibration_imagecas_splits_train90.json` original intacto).
+
+## Otimização N × Rv com perda real zero garantida (2026-07-29)
+
+Substitui a curva de percentil da tarefa 5 como candidato a **método final de produção** — a
+tarefa 5 permanece só como exploração diagnóstica (usava `offset_percentile` calibrado só no
+treino, validado em val/test, e tolerava perda parcial). Aqui a régua muda: **perda real zero é
+obrigatória** (não mais tolerada), e o `offset_percentile` é calibrado sobre a **população inteira
+já filtrada pelo critério C** (não só treino) — porque o objetivo agora é definir o bbox final de
+produção sobre o dataset que sobra, não medir generalização treino→teste.
+
+**Regra de inclusão explícita — definição de domínio de aplicabilidade, não regra de pipeline:**
+um caso só entra no dataset final de um ponto da grade se seu **label real** (voxel a voxel, não o
+proxy de caixa) cabe **inteiramente** dentro do bbox calibrado. Isso usa o label do próprio caso —
+é exatamente a mesma natureza do critério B (envelope_extent), já reclassificado na tarefa 3b como
+**curadoria de dataset, não pipeline determinístico aplicável a uma imagem nova sem anotação**. O
+resultado desta seção define **quais das 1000 imagens do ImageCAS entram no estudo** em cada corte
+de `offset_percentile` — não um procedimento para decidir isso numa imagem nova.
+
+**Método**: `select_cases_by_aorta_volume_percentile` (critério C, `exclusion_pct=5%`, sobre os
+994 casos inteiros) → 944 casos incluídos, 50 excluídos. Cache de máscaras estendido de 906
+(`label_voxel_cache_valtest.pkl`, só val+test) para os 994 casos `ok` inteiros
+(`label_voxel_cache_all_ok.pkl`, +88 casos de treino recarregados — ~169s, dentro do esperado).
+Para cada nível de `offset_percentile` em `[100, 99, 98, 97, 96, 95, 92.5, 90, 85, 80]`: bbox
+calibrado por percentil do offset **sobre os 944 casos filtrados** (não só treino); por caso,
+checagem voxel a voxel se o label cabe inteiro (perda real = 0); `N_final` = sobreviventes;
+`Rv` calculado **só sobre os sobreviventes** (não sobre os 944 testados).
+
+**Checagem de consistência**: em `offset_percentile=100%`, o resultado bate exatamente com a linha
+"C @ 5%" já reportada na seção anterior (bbox 550,8×589,3×320,5, `Rv` médio −56,06%, `N`=944,
+0 excluídos por não caber) — confirma que as duas análises usam a mesma base.
+
+| offset_percentile | bbox full-res (y×x×z) | N final | % do dataset retido | `Rv` médio | `Rv` mediana | `Rv` mín | excl. por critério C | excl. por não caber | N total excluído (de 1000) |
+|---|---|---|---|---|---|---|---|---|---|
+| 100% | 550,8 × 589,3 × 320,5 | 944 | 94,4% | **−56,06%** | −44,30% | −139,1% | 50 | 0 | 56 |
+| 99% | 458,0 × 398,6 × 272,7 | 893 | 89,3% | **25,32%** | 30,94% | −14,4% | 50 | 51 | 107 |
+| 98% | 436,2 × 379,0 × 257,4 | 848 | 84,8% | 36,26% | 40,97% | 2,2% | 50 | 96 | 152 |
+| 97% | 425,9 × 368,2 × 248,7 | 801 | 80,1% | 41,65% | 45,91% | 27,8% | 50 | 143 | 199 |
+| 96% | 414,4 × 361,7 × 242,6 | 757 | 75,7% | 45,63% | 49,57% | 32,7% | 50 | 187 | 243 |
+| 95% | 408,9 × 356,5 × 240,2 | 716 | 71,6% | 47,64% | 51,44% | 35,2% | 50 | 228 | 284 |
+| 92,5% | 393,5 × 346,0 × 232,5 | 618 | 61,8% | 52,61% | 56,09% | 41,4% | 50 | 326 | 382 |
+| 90% | 384,9 × 336,3 × 227,0 | 533 | 53,3% | 55,92% | 59,24% | 45,6% | 50 | 411 | 467 |
+| 85% | 370,2 × 321,3 × 215,9 | 387 | 38,7% | 61,41% | 64,36% | 52,4% | 50 | 557 | 613 |
+| 80% | 357,5 × 308,4 × 208,2 | 280 | 28,0% | 65,61% | 68,16% | 57,5% | 50 | 664 | 720 |
+
+(N total excluído = 6 falhas de detecção da aorta + 50 excluídos pelo critério C a 5% + excluídos
+por não caber inteiro no bbox deste percentil; constante em 6+50=56 em toda a grade, a última
+coluna varia só pelo termo de "não caber".)
+
+**Custo marginal (casos perdidos por ponto percentual de `Rv` ganho), para achar o "joelho" sem
+prescrever nada:**
+
+| transição | ΔN (casos perdidos) | Δ`Rv` médio (pp) | casos perdidos por pp de `Rv` |
+|---|---|---|---|
+| 100%→99% | −51 | +81,38 | **0,63** |
+| 99%→98% | −45 | +10,94 | 4,11 |
+| 98%→97% | −47 | +5,39 | 8,72 |
+| 97%→96% | −44 | +3,98 | 11,06 |
+| 96%→95% | −41 | +2,01 | 20,40 |
+| 95%→92,5% | −98 | +4,97 | 19,72 |
+| 92,5%→90% | −85 | +3,31 | 25,68 |
+| 90%→85% | −146 | +5,49 | 26,59 |
+| 85%→80% | −107 | +4,20 | 25,48 |
+
+**Leitura, sem escolher o ponto ótimo:**
+
+- **O "joelho" mais nítido da curva fica logo na primeira transição, 100%→99%**: só 51 casos
+  (5,4% dos 944) saem, e o `Rv` médio salta de −56,06% para +25,32% — um ganho de 81,4 pontos
+  percentuais ao custo de 0,63 caso por ponto, disparado mais barato que qualquer transição
+  seguinte. Isso confirma o achado da seção anterior: o mínimo/máximo absoluto (100%) é dominado
+  por um punhado de casos extremos — removê-los (ainda que só do bbox, não do dataset final,
+  já que 99% ainda inclui a maioria) já resolve a maior parte do problema de `Rv` negativo.
+- **Da 99% em diante, o custo marginal cresce de forma razoavelmente suave** (de ~4 para ~25-27
+  casos por ponto de `Rv`), sem um segundo joelho tão nítido — é mais um platô de retornos
+  decrescentes do que um segundo ponto de inflexão abrupta. Os pontos de custo marginal mais alto
+  ficam entre 90% e 80% (~25-27 casos/pp), onde o dataset final já caiu para 280-533 casos (de
+  1000 originais).
+- **Trade-off central para a decisão humana**: em 95%, `N_final`=716 (71,6% do dataset original)
+  com `Rv` médio de 47,6%; em 85%, `N_final`=387 (38,7%) com `Rv` médio de 61,4%. Não há um ponto
+  "correto" identificável só pelos dados — depende de quanto do dataset o Cap. 1 pode perder e
+  ainda re-treinar de forma válida, uma decisão fora do escopo desta análise.
+
+**Correção (2026-07-30): a quebra por split original (treino/val/test do
+`imagecas_splits_train90.json`) que estava aqui foi removida.** Esse split foi usado só como
+semente aleatória para fins de um teste anterior — não tem relevância metodológica para o
+Capítulo 3, que define sua própria divisão treino/teste sobre o dataset final (o resultante da
+exclusão de qualidade + do corte de `offset_percentile` escolhido aqui). Reportar sobrevivência
+"por split" sugeria uma relevância que esse split não tem; o dado bruto (994 casos, com o campo
+`split` do `imagecas_splits_train90.json`) continua disponível em
+`output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss_by_split.csv`, mantido em
+disco como registro histórico, mas fora da narrativa deste documento e do notebook de reunião.
+
+Reproduzível: script ad-hoc, reaproveita `select_cases_by_aorta_volume_percentile` já existente +
+o cache de máscaras estendido (`label_voxel_cache_all_ok.pkl`), sem reprocessar segmentação. Dados
+salvos em `output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv`. Nenhum
+artefato de produção alterado.
+
+## Decisão da reunião de 2026-07-29 (Dany + Hélder)
+
+Resumo de decisão — detalhes completos em [docs/STATUS.md](STATUS.md). Escolhidas **duas opções**
+para teste em treino real, ambas usando o mesmo **Critério C** (`aorta_voxels`,
+`exclusion_pct=5%`) para exclusão de casos, diferindo só na tolerância a perda parcial de label:
+
+- **Opção 1 (perda parcial tolerada)**: linha `arm="com filtro critério C 5%"`,
+  `offset_percentile=95` em
+  [task5_percentile_bbox_tradeoff_real_vs_proxy.csv](../output/bounding_box/aorta_anchor_z_diagnosis/task5_percentile_bbox_tradeoff_real_vs_proxy.csv)
+  (seção "Correção (2026-07-28/29): perda real... vs. proxy geométrico" acima) — `Rv` médio ≈
+  46,9-47%.
+- **Opção 2 (perda zero garantida)**: linha `offset_percentile=98` em
+  [task_n_rv_curve_zero_loss.csv](../output/bounding_box/aorta_anchor_z_diagnosis/task_n_rv_curve_zero_loss.csv)
+  (seção "Otimização N × Rv com perda real zero garantida" acima) — `N_final`=848/1000 (84,8% do
+  dataset retido), `Rv` médio=36,26%.
+
+Não decidir entre as duas só pela curva de `Rv`/N — plano combinado com o Dany é rodar as duas em
+treino real e comparar a métrica de segmentação final (DSC/HD/AHD) + VRAM/tempo de treino. Nenhum
+código, CSV ou notebook alterado por esta seção — só a decisão registrada.
+
+## Etapas 7-8 (posicionamento + corte em resolução integral) — piloto em 5 casos (2026-07-30)
+
+Primeira implementação real de posicionamento/corte, escopo restrito a 5 casos (não os 850 da
+Opção 1) para validar a lógica antes de rodar no dataset completo. Novo módulo
+`src/utils/segmentation/bbox_crop.py` (4 funções, 12 testes em `tests/test_bbox_crop.py`):
+`compute_percentile_offsets` (mesma fórmula usada internamente por
+`evaluate_percentile_bbox_tradeoff`, extraída para reaproveitar sem duplicar — não a redefine),
+`compute_full_resolution_bbox` (escala âncora+offset para resolução integral, arredondamento
+conservador floor/ceil, clamp aos limites do volume), `crop_volume_and_update_affine` e
+`compute_real_label_loss` (voxel a voxel, direto na máscara em resolução integral).
+
+**Calibração reaproveitada, não recriada do zero**: como nenhum script commitado persistiu os
+`offset_min`/`offset_max` desse arm/percentile específico (só os CSVs agregados
+`task5_percentile_bbox_tradeoff_real_vs_proxy.csv`/`task5_severe_tail_case_c5_p95.csv`, gerados
+por script ad-hoc não versionado), os offsets foram recalculados chamando
+`compute_percentile_offsets` sobre o mesmo treino filtrado (`_filter_splits_by_train_threshold`,
+critério C a 5%) — **e cruzados contra `evaluate_percentile_bbox_tradeoff` já commitada**: `bbox_
+extent_full_resolution` bateu **exatamente** (diferença 0,0 nos 3 eixos) com 408,5×357,2×243,1 já
+documentado, `Rv`=46,90% e perda mediana=0,00% também idênticos. Nenhuma lógica de calibração
+nova — só reaproveitada.
+
+**Divergência do desenho original, registrada em vez de ignorada**: o pedido assumia
+`novo_origin = origin_original + [y0,x0,z0] * spacing`, mas o affine real deste dataset tem
+diagonal **negativa** no eixo 0 (`affine[0,0]≈−0,377` no caso 1; `aff2axcodes` confirma
+`('L','A','S')`) — a fórmula simplificada erraria o sinal do deslocamento nesse eixo.
+`crop_volume_and_update_affine` usa a fórmula geral (`affine[:3,:3] @ offset_voxel +
+affine[:3,3]`), correta independente de sinal/orientação; testada explicitamente com um affine
+sintético de diagonal negativa.
+
+**Seleção dos 5 casos**: `132` (pior caso severo conhecido) e `401` (mais brando, único de val)
+mantidos como pedido. **`934` (calibrador original) foi excluído pelo próprio critério C a 5% no
+treino** (`aorta_voxels`=681.114, acima do limiar superior 675.318,0) — não pertence ao conjunto
+filtrado, então não pôde ser usado. **Substituído por `428`** (também calibrador original,
+y_max/x_min, sobrevive ao filtro: `aorta_voxels`=536.221). Os outros 2 casos "normais" (`54`,
+`483`) foram selecionados programaticamente: entre os 657 casos com perda real exatamente zero
+(fora dos 13 já conhecidos como severos), os dois com `aorta_voxels` mais próximos da mediana da
+população avaliada (850 casos, mediana=214.315) — `54` (214.311) e `483` (214.274).
+
+**Tabela de validação (5 casos, resolução integral):**
+
+| img_id | papel | shape antes | shape depois (img=label) | `Rv` do caso | perda real (integral) | perda real (reduzida) | shapes img/label | shape reconstruído exato | affine consistente | originais inalterados |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 132 | pior severo conhecido | 512×512×275 | 355×249×218 | 73,27% | 61,6690% | 61,2130% | ✅ | ✅ | ✅ | ✅ |
+| 401 | mais brando (val) | 512×512×275 | 409×358×196 | 60,19% | 22,7809% | 22,3372% | ✅ | ✅ | ✅ | ✅ |
+| 428 | substituto de 934 (treino) | 512×512×275 | 410×358×239 | 51,34% | 15,3272% | 16,0937% | ✅ | ✅ | ✅ | ✅ |
+| 54 | "normal" 1 | 512×512×275 | 410×318×244 | 55,87% | 0,0000% | 0,0000% | ✅ | ✅ | ✅ | ✅ |
+| 483 | "normal" 2 | 512×512×275 | 410×358×244 | 50,32% | 0,0000% | 0,0000% | ✅ | ✅ | ✅ | ✅ |
+
+**Achados e discrepâncias vs. o já documentado — nenhuma silenciada:**
+
+1. **132 e 401 batem com os valores já documentados** (61,21%/61,2130% e 22,34%/22,3372%,
+   diferença <0,01pp, ruído de arredondamento) — confirma que a recalibração e o método de perda
+   real (resolução reduzida) reproduzem exatamente o que já estava registrado.
+2. **`934` não estava mais no conjunto filtrado — divergência do pedido original, documentada
+   acima**, não presumida silenciosamente; substituído por `428` com registro explícito da troca.
+3. **`428` (calibrador original) NÃO tem perda real zero** (15,33% em resolução integral, 16,09%
+   em resolução reduzida) — contraria a expectativa "por construção" do pedido para casos
+   calibradores. Isso é esperado, não um bug: a garantia de perda zero só vale no percentil 100%
+   (mínimo/máximo absoluto); em 95%, nem os próprios casos de treino que definiram os extremos
+   originais têm garantia de caber inteiros.
+4. **Perda real em resolução integral diverge um pouco da perda em resolução reduzida**, em todos
+   os 3 casos com perda não-nula: 132 (61,67% vs. 61,21%, +0,46pp), 401 (22,78% vs. 22,34%,
+   +0,44pp), 428 (15,33% vs. 16,09%, −0,77pp) — pequeno mas não nulo, esperado (a máscara em
+   resolução reduzida é uma reamostragem nearest-neighbor da máscara integral, então a contagem de
+   voxels na borda do bbox muda um pouco entre as duas resoluções). Nenhuma das duas está "errada"
+   — são medidas em grades diferentes; a de resolução integral é a mais direta/definitiva para o
+   corte de fato aplicado.
+5. **`shape_reconstruction_exact=True` nos 5 casos** — confirma, para este subconjunto, o mesmo
+   achado já documentado para 932/994 casos em "Esclarecimento 1" (reconstrução do shape integral
+   a partir do shape reduzido é exata).
+6. **Originais confirmadamente inalterados** (mtime + SHA-256 antes/depois idênticos nos 10
+   arquivos, 5 casos × imagem/label) e **affine consistente entre imagem e label recortados** nos
+   5 casos — nenhuma falha nessas checagens.
+
+Arquivos recortados salvos em `output/bounding_box/cropped_datasets_TEST/<img_id>/{image,label}.
+nii.gz` (pasta de teste, `.gitignore`d — 257MB para só 5 casos, não versionado). Tabela completa
+salva em `output/bounding_box/aorta_anchor_z_diagnosis/pilot_5cases_crop_validation.csv`. Scripts
+de orquestração (calibração/seleção/corte) ad-hoc, não versionados — só o módulo reaproveitável
+(`bbox_crop.py`) e seus testes foram commitados. Nenhum artefato de produção alterado.
+
+**Antes de aplicar nos 850 casos completos**: revisão humana desta tabela pendente — em
+particular, decidir se a divergência resolução-integral-vs-reduzida (achado 4) é aceitável como
+está ou se a etapa 9 (validação, ainda não implementada) deve reportar as duas métricas lado a
+lado por padrão.
+
 ## Não incluído nesta etapa / decisões em aberto
 
-- Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
-  **A fórmula `bbox_min/max = âncora + offset_min/max_full_resolution` (por eixo) valia para um
-  bbox de tamanho FIXO — não vale mais** desde a decisão de 2026-07-21 de usar um envelope
-  individual por imagem (ver seção "Decisão" acima). Não implementar etapas 7-8 até o critério de
-  tamanho do envelope individual ser decidido.
+- Etapas 7-8: **piloto em 5 casos concluído (ver seção acima)**, aplicação nos 850 casos da Opção
+  1 ainda não feita — pendente de revisão da tabela piloto.

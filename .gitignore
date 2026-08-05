@@ -11,6 +11,10 @@ wheels/
 .vscode
 /output/cases_analysis_cache
 *.log
+/output/bounding_box/aorta_anchor_z_diagnosis/label_voxel_cache_valtest.pkl
+/output/bounding_box/aorta_anchor_z_diagnosis/label_voxel_cache_all_ok.pkl
+/output/bounding_box/cropped_datasets_TEST/
+/output/bounding_box/cropped_datasets/
 .ruff_cache/
 
 # Dataset symlink/junction

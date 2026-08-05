@@ -1,0 +1,6 @@
+img_id,role,shape_before,shape_after,label_shape_after,shapes_match_img_label,shape_reconstruction_exact,bbox_min,bbox_max,rv_case_%,loss_full_res_%,loss_full_res_total_voxels,loss_full_res_n_outside,loss_reduced_res_%_from_step2,affine_consistent_img_label,originals_unchanged,elapsed_s
+132,pior_caso_severo,"(512, 512, 275)","(355, 249, 218)","(355, 249, 218)",True,True,"(0, 263, 57)","(355, 512, 275)",73.27,61.669,105403,65001,61.213,True,True,3.97
+401,caso_brando_severo_val,"(512, 512, 275)","(409, 358, 196)","(409, 358, 196)",True,True,"(81, 9, 0)","(490, 367, 196)",60.19,22.7809,108973,24825,22.3372,True,True,3.94
+428,"calibrador_substituto_de_934 (y_max/x_min, treino)","(512, 512, 275)","(410, 358, 239)","(410, 358, 239)",True,True,"(10, 142, 0)","(420, 500, 239)",51.34,15.3272,178448,27351,16.0937,True,True,4.08
+54,normal_1,"(512, 512, 275)","(410, 318, 244)","(410, 318, 244)",True,True,"(31, 194, 20)","(441, 512, 264)",55.87,0.0,116752,0,0.0,True,True,3.86
+483,normal_2,"(512, 512, 275)","(410, 358, 244)","(410, 358, 244)",True,True,"(66, 127, 24)","(476, 485, 268)",50.32,0.0,78252,0,0.0,True,True,3.77
