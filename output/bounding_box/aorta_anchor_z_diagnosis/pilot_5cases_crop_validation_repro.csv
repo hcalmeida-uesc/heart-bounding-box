@@ -1,0 +1,6 @@
+img_id,papel,shape_antes,shape_depois,label_shape_depois,shapes_img_label_iguais,perda_real_integral_pct,total_voxels_label,n_inside,n_outside,affine_consistente,originais_inalterados
+132,pior severo conhecido (test),"(512, 512, 275)","(355, 249, 218)","(355, 249, 218)",True,61.66902270333862,105403,40402,65001,True,True
+401,mais brando (val),"(512, 512, 275)","(409, 358, 196)","(409, 358, 196)",True,22.780872326172542,108973,84148,24825,True,True
+428,"substituto de 934, calibrador original (train)","(512, 512, 275)","(410, 358, 239)","(410, 358, 239)",True,15.327154128933918,178448,151097,27351,True,True
+54,"normal 1 (test, perto da mediana aorta_voxels)","(512, 512, 275)","(410, 318, 244)","(410, 318, 244)",True,0.0,116752,116752,0,True,True
+483,"normal 2 (val, perto da mediana aorta_voxels)","(512, 512, 275)","(410, 358, 244)","(410, 358, 244)",True,0.0,78252,78252,0,True,True
