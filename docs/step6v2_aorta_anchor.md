@@ -1561,10 +1561,92 @@ Não decidir entre as duas só pela curva de `Rv`/N — plano combinado com o Da
 treino real e comparar a métrica de segmentação final (DSC/HD/AHD) + VRAM/tempo de treino. Nenhum
 código, CSV ou notebook alterado por esta seção — só a decisão registrada.
 
+## Etapas 7-8 (posicionamento + corte em resolução integral) — piloto em 5 casos (2026-07-30)
+
+Primeira implementação real de posicionamento/corte, escopo restrito a 5 casos (não os 850 da
+Opção 1) para validar a lógica antes de rodar no dataset completo. Novo módulo
+`src/utils/segmentation/bbox_crop.py` (4 funções, 12 testes em `tests/test_bbox_crop.py`):
+`compute_percentile_offsets` (mesma fórmula usada internamente por
+`evaluate_percentile_bbox_tradeoff`, extraída para reaproveitar sem duplicar — não a redefine),
+`compute_full_resolution_bbox` (escala âncora+offset para resolução integral, arredondamento
+conservador floor/ceil, clamp aos limites do volume), `crop_volume_and_update_affine` e
+`compute_real_label_loss` (voxel a voxel, direto na máscara em resolução integral).
+
+**Calibração reaproveitada, não recriada do zero**: como nenhum script commitado persistiu os
+`offset_min`/`offset_max` desse arm/percentile específico (só os CSVs agregados
+`task5_percentile_bbox_tradeoff_real_vs_proxy.csv`/`task5_severe_tail_case_c5_p95.csv`, gerados
+por script ad-hoc não versionado), os offsets foram recalculados chamando
+`compute_percentile_offsets` sobre o mesmo treino filtrado (`_filter_splits_by_train_threshold`,
+critério C a 5%) — **e cruzados contra `evaluate_percentile_bbox_tradeoff` já commitada**: `bbox_
+extent_full_resolution` bateu **exatamente** (diferença 0,0 nos 3 eixos) com 408,5×357,2×243,1 já
+documentado, `Rv`=46,90% e perda mediana=0,00% também idênticos. Nenhuma lógica de calibração
+nova — só reaproveitada.
+
+**Divergência do desenho original, registrada em vez de ignorada**: o pedido assumia
+`novo_origin = origin_original + [y0,x0,z0] * spacing`, mas o affine real deste dataset tem
+diagonal **negativa** no eixo 0 (`affine[0,0]≈−0,377` no caso 1; `aff2axcodes` confirma
+`('L','A','S')`) — a fórmula simplificada erraria o sinal do deslocamento nesse eixo.
+`crop_volume_and_update_affine` usa a fórmula geral (`affine[:3,:3] @ offset_voxel +
+affine[:3,3]`), correta independente de sinal/orientação; testada explicitamente com um affine
+sintético de diagonal negativa.
+
+**Seleção dos 5 casos**: `132` (pior caso severo conhecido) e `401` (mais brando, único de val)
+mantidos como pedido. **`934` (calibrador original) foi excluído pelo próprio critério C a 5% no
+treino** (`aorta_voxels`=681.114, acima do limiar superior 675.318,0) — não pertence ao conjunto
+filtrado, então não pôde ser usado. **Substituído por `428`** (também calibrador original,
+y_max/x_min, sobrevive ao filtro: `aorta_voxels`=536.221). Os outros 2 casos "normais" (`54`,
+`483`) foram selecionados programaticamente: entre os 657 casos com perda real exatamente zero
+(fora dos 13 já conhecidos como severos), os dois com `aorta_voxels` mais próximos da mediana da
+população avaliada (850 casos, mediana=214.315) — `54` (214.311) e `483` (214.274).
+
+**Tabela de validação (5 casos, resolução integral):**
+
+| img_id | papel | shape antes | shape depois (img=label) | `Rv` do caso | perda real (integral) | perda real (reduzida) | shapes img/label | shape reconstruído exato | affine consistente | originais inalterados |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 132 | pior severo conhecido | 512×512×275 | 355×249×218 | 73,27% | 61,6690% | 61,2130% | ✅ | ✅ | ✅ | ✅ |
+| 401 | mais brando (val) | 512×512×275 | 409×358×196 | 60,19% | 22,7809% | 22,3372% | ✅ | ✅ | ✅ | ✅ |
+| 428 | substituto de 934 (treino) | 512×512×275 | 410×358×239 | 51,34% | 15,3272% | 16,0937% | ✅ | ✅ | ✅ | ✅ |
+| 54 | "normal" 1 | 512×512×275 | 410×318×244 | 55,87% | 0,0000% | 0,0000% | ✅ | ✅ | ✅ | ✅ |
+| 483 | "normal" 2 | 512×512×275 | 410×358×244 | 50,32% | 0,0000% | 0,0000% | ✅ | ✅ | ✅ | ✅ |
+
+**Achados e discrepâncias vs. o já documentado — nenhuma silenciada:**
+
+1. **132 e 401 batem com os valores já documentados** (61,21%/61,2130% e 22,34%/22,3372%,
+   diferença <0,01pp, ruído de arredondamento) — confirma que a recalibração e o método de perda
+   real (resolução reduzida) reproduzem exatamente o que já estava registrado.
+2. **`934` não estava mais no conjunto filtrado — divergência do pedido original, documentada
+   acima**, não presumida silenciosamente; substituído por `428` com registro explícito da troca.
+3. **`428` (calibrador original) NÃO tem perda real zero** (15,33% em resolução integral, 16,09%
+   em resolução reduzida) — contraria a expectativa "por construção" do pedido para casos
+   calibradores. Isso é esperado, não um bug: a garantia de perda zero só vale no percentil 100%
+   (mínimo/máximo absoluto); em 95%, nem os próprios casos de treino que definiram os extremos
+   originais têm garantia de caber inteiros.
+4. **Perda real em resolução integral diverge um pouco da perda em resolução reduzida**, em todos
+   os 3 casos com perda não-nula: 132 (61,67% vs. 61,21%, +0,46pp), 401 (22,78% vs. 22,34%,
+   +0,44pp), 428 (15,33% vs. 16,09%, −0,77pp) — pequeno mas não nulo, esperado (a máscara em
+   resolução reduzida é uma reamostragem nearest-neighbor da máscara integral, então a contagem de
+   voxels na borda do bbox muda um pouco entre as duas resoluções). Nenhuma das duas está "errada"
+   — são medidas em grades diferentes; a de resolução integral é a mais direta/definitiva para o
+   corte de fato aplicado.
+5. **`shape_reconstruction_exact=True` nos 5 casos** — confirma, para este subconjunto, o mesmo
+   achado já documentado para 932/994 casos em "Esclarecimento 1" (reconstrução do shape integral
+   a partir do shape reduzido é exata).
+6. **Originais confirmadamente inalterados** (mtime + SHA-256 antes/depois idênticos nos 10
+   arquivos, 5 casos × imagem/label) e **affine consistente entre imagem e label recortados** nos
+   5 casos — nenhuma falha nessas checagens.
+
+Arquivos recortados salvos em `output/bounding_box/cropped_datasets_TEST/<img_id>/{image,label}.
+nii.gz` (pasta de teste, `.gitignore`d — 257MB para só 5 casos, não versionado). Tabela completa
+salva em `output/bounding_box/aorta_anchor_z_diagnosis/pilot_5cases_crop_validation.csv`. Scripts
+de orquestração (calibração/seleção/corte) ad-hoc, não versionados — só o módulo reaproveitável
+(`bbox_crop.py`) e seus testes foram commitados. Nenhum artefato de produção alterado.
+
+**Antes de aplicar nos 850 casos completos**: revisão humana desta tabela pendente — em
+particular, decidir se a divergência resolução-integral-vs-reduzida (achado 4) é aceitável como
+está ou se a etapa 9 (validação, ainda não implementada) deve reportar as duas métricas lado a
+lado por padrão.
+
 ## Não incluído nesta etapa / decisões em aberto
 
-- Etapas 7 (posicionamento do bbox) e 8 (corte em resolução integral) ainda não implementadas.
-  **A fórmula `bbox_min/max = âncora + offset_min/max_full_resolution` (por eixo) valia para um
-  bbox de tamanho FIXO — não vale mais** desde a decisão de 2026-07-21 de usar um envelope
-  individual por imagem (ver seção "Decisão" acima). Não implementar etapas 7-8 até o critério de
-  tamanho do envelope individual ser decidido.
+- Etapas 7-8: **piloto em 5 casos concluído (ver seção acima)**, aplicação nos 850 casos da Opção
+  1 ainda não feita — pendente de revisão da tabela piloto.
