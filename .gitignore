@@ -15,6 +15,8 @@ wheels/
 /output/bounding_box/aorta_anchor_z_diagnosis/label_voxel_cache_all_ok.pkl
 /output/bounding_box/cropped_datasets_TEST/
 /output/bounding_box/cropped_datasets/
+/output/bounding_box/cropped_dataset_option1/
+/output/bounding_box/cropped_dataset_option2/
 .ruff_cache/
 
 # Dataset symlink/junction
