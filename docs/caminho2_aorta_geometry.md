@@ -6,9 +6,17 @@ coronário entra só como alvo; nenhuma característica usa o rótulo.
 
 **Pergunta:** a geometria das duas aortas (diâmetros, centros, distância entre elas) explica a
 extensão e a posição da árvore coronária? Inspiração: Zair et al. (2022), *Heart Outer Surface
-Segmentation from Computed Tomography Images*. Nesse artigo, a região cardíaca é um círculo axial de
-raio R = d + 2 × D_asc, em que d é a distância entre os centros das duas aortas e D_asc é o diâmetro
-da ascendente.
+Segmentation from Computed Tomography Images* (ISPA 2022, doi 10.1109/ISPA54004.2022.9786309).
+
+> **Correção após leitura do artigo (Seções III-A e III-B, eq. 1 a 4, Fig. 4a).** A ROI do artigo é um
+> círculo de centro C = (posição ântero-posterior da ascendente, posição látero-lateral da descendente).
+> O raio é R = |ΔAP| + 2 × D_asc: só a componente ântero-posterior da distância entre as aortas, mais
+> duas vezes o diâmetro da ascendente. As aortas são medidas numa única fatia, a da bifurcação do tronco
+> pulmonar, acima das coronárias.
+>
+> O Passo 4 original (Seção 4) usou outra variante: ponto médio, distância euclidiana `d`, aortas medidas
+> perto da raiz e quadrado circunscrito. A versão fiel ao artigo está na **Seção 4b**. Os Passos 1 a 3
+> não usam a fórmula e não mudam.
 
 **População:** os 792 casos fora do teste (`split_original.csv`, `split = trainval`), sem Critério C.
 Os resultados também aparecem separados entre dentro do Critério C (724 casos) e fora dele (68). Os
@@ -109,12 +117,12 @@ Rótulo == 1, em resolução integral. Por eixo:
   pela mediana dos folds de treino, como no Passo 0b. A âncora (e) é a regressão linear do centro
   sobre A1, ascendente, descendente e A2, também fora da amostra pelos folds.
 
-### 1.4 Passo 4 — círculo de Zair como caixa axial
+### 1.4 Passo 4 — círculo de Zair como caixa axial (variante; não é o método do artigo)
 
 - **Caixa:** quadrado circunscrito ao círculo de raio k × R, cortado nos limites da imagem.
-- **Centro:** ponto médio entre os centros da ascendente e da descendente. **Não consegui conferir no
-  texto do artigo como o centro é definido** (só tive acesso a resumos), então o ponto médio é uma
-  suposição.
+- **Centro:** ponto médio entre os centros da ascendente e da descendente. Foi uma suposição, feita
+  antes da leitura do artigo; o centro do artigo é outro (ver Seção 4b).
+- **Raio:** R = d + 2 × D_asc, com `d` euclidiano e as aortas medidas perto da raiz (Passo 1).
 - **Perda axial:** fração do label com (eixo 0, eixo 1) fora do quadrado, em qualquer z.
 - **Redução de área:** 1 − área do quadrado / (512 × 512).
 - **Calibração de k:** nos 724 casos com Zair válido e dentro do Critério C (os casos em que a Opção 1
@@ -277,7 +285,7 @@ O R²_oos de (e) é o do centro em coordenadas absolutas em mm. Em LL, ele vem q
 
 ---
 
-## 4. Passo 4 — o círculo de Zair como caixa axial
+## 4. Passo 4 — o círculo de Zair como caixa axial (variante: ponto médio, `d` euclidiano, quadrado)
 
 - **Alvo de perda:** a Opção 1 de produção, só nos eixos 0 e 1, nos 724 casos (Zair válido ∩ Critério
   C), tem perda axial média de **0,950%**.
@@ -313,6 +321,106 @@ As perdas por caso estão em `c2_zair_axial_percase.csv`.
 
 ---
 
+## 4b. Passo 4 fiel ao artigo de Zair et al.
+
+### 4b.1 Método
+
+**O que o artigo define** (Seções III-A e III-B, eq. 1 a 4, Fig. 4a):
+- **Notação:** A1(x1, y1) é a ascendente e A2(x2, y2) a descendente. Pela Fig. 4a, `x` é vertical na
+  imagem (ântero-posterior) e `y` é horizontal (látero-lateral).
+- **Centro:** C(x1, y2), com a posição AP da ascendente e a posição LL da descendente. É o cruzamento
+  das duas retas da Fig. 4a.
+- **Raio:** R = Dist(C, A2) = |x2 − x1|, só a componente AP. A eq. 3 do artigo escreve a distância
+  entre A1 e A2, o que é inconsistente com as eq. 2 e 4.
+- **Raio usado:** R = |x2 − x1| + D × 2, com D o diâmetro da ascendente. A Fig. 4 mostra R, R + D e
+  R + 2D.
+- **Máscara:** circular, aplicada a todas as fatias.
+- **Fatia:** a "first slice", na bifurcação do tronco pulmonar em Y, logo abaixo da concavidade do
+  arco e sem coronárias. As duas aortas são circulares (21 ± 3 e 16 ± 3 mm no atlas). A fatia é
+  escolhida por registro rígido com um atlas e Dice.
+
+**O que foi implementado aqui:**
+- **Fatia:** o atlas do artigo não está disponível. A aproximação é a fatia mais cranial em que a
+  ascendente (rastreamento de produção) e a descendente (seleção do Passo 1) são detectadas.
+  - Em 92,5% dos casos é a fatia do topo do volume.
+  - Diagnóstico com o rótulo (sem uso na seleção): em **98,8%** dos 776 casos, essa fatia está acima de
+    todo o label coronário, como o artigo exige.
+- **Medidas na fatia:**
+  - Ascendente: Hough com raio de 6 a 22 mm, a até 6 mm do centro rastreado.
+  - Descendente: o círculo escolhido no Passo 1 naquela fatia.
+  - D de produção (raio rastreado) entra como variante.
+- **ROI:** C = (eixo 0 = LL da descendente, eixo 1 = AP da ascendente), R = |ΔAP| + 2D, círculo
+  aplicado a todas as fatias.
+- **Avaliação:** perda axial e redução de área como no Passo 4. A redução de área usa a área do
+  círculo dentro da imagem.
+- **Calibração:** k foi recalibrado (R' = k × R) nos mesmos 724 casos para a perda axial média da
+  Opção 1 (0,950%). A2 e Opção 1 são os mesmos da Seção 4.
+
+### 4b.2 Medidas na fatia (776 casos fora do teste; mediana [p5–p95])
+
+| Medida | Valor |
+|---|---|
+| D da ascendente, faixa larga | 31,1 mm [15,3–39,0] |
+| D da ascendente, faixa de produção | 32,1 mm |
+| D da descendente | 22,5 mm |
+| \|ΔAP\| | 66,9 mm |
+| R = \|ΔAP\| + 2D | 129,3 mm [96,8–158,6] |
+| FOV axial | 179 mm |
+| Casos com círculo (2R) maior que o FOV | **96,9%** |
+| Fatia acima de todo o label | 98,8% (dentro de C: 99,2%; fora: 94,2%; teste: 99,0%) |
+
+O D medido nessa fatia (31 mm) é maior que o da janela da raiz (24 mm) e que a referência do artigo
+(21 ± 3 mm).
+
+### 4b.3 Resultados
+
+- **Alvo:** perda axial média de 0,950% (Opção 1, eixos 0 e 1, 724 casos).
+- **k calibrado:**
+  - **0,679** para o círculo, com D na faixa larga;
+  - **0,588** para o círculo, com D de produção;
+  - **0,598** para o quadrado circunscrito.
+- **A2:** p = 91,40.
+
+| Conjunto | Método | N | Perda média (%) | > 1% | > 5% | > 20% | Perda máx. (%) | Redução de área média (mediana) |
+|---|---|---|---|---|---|---|---|---|
+| **792: 724 mesmos casos** | Círculo, R = \|ΔAP\| (eq. 4) | 724 | 5,410 | 40,5% | 28,7% | 7,7% | 100,0 | 55,6% (56,8%) |
+| | Círculo, R = \|ΔAP\| + D | 724 | 0,335 | 2,5% | 1,7% | 0,1% | 93,4 | 19,0% (16,2%) |
+| | **Círculo, R = \|ΔAP\| + 2D (artigo)** | 724 | 0,116 | 0,4% | 0,1% | 0,1% | 76,6 | 3,5% (0,6%) |
+| | Círculo do artigo, D de produção | 724 | 0,106 | 0,1% | 0,1% | 0,1% | 76,6 | 1,7% (0,4%) |
+| | **Círculo recalibrado (k = 0,679)** | 724 | 0,950 | 7,3% | 5,0% | 1,2% | 87,6 | **30,3%** (28,5%) |
+| | Círculo recalibrado, D de produção (k = 0,588) | 724 | 0,950 | 12,2% | 5,4% | 0,7% | 93,5 | **42,6%** (42,7%) |
+| | Quadrado circunscrito, R do artigo | 724 | 0,093 | 0,3% | 0,1% | 0,1% | 65,8 | 1,0% (0,0%) |
+| | Quadrado recalibrado (k = 0,598) | 724 | 0,949 | 9,1% | 4,4% | 1,4% | 85,1 | 29,8% (28,0%) |
+| | A2 axial (p = 91,40) | 724 | 0,945 | 18,1% | 6,5% | 0,6% | 30,0 | **50,0%** |
+| | Opção 1, eixos 0 e 1 | 724 | 0,950 | 13,8% | 5,9% | 0,4% | 61,4 | **44,4%** (44,0%) |
+| **Só fora de C (52)** | Círculo do artigo | 52 | 0,160 | 1,9% | 1,9% | 0,0% | 8,3 | 5,0% |
+| | Círculo recalibrado (k = 0,679) | 52 | 1,431 | 13,5% | 7,7% | 1,9% | 37,1 | 36,0% |
+| | A2 axial | 52 | 0,787 | 13,5% | 5,8% | 0,0% | 15,8 | 50,0% |
+| | Opção 1, eixos 0 e 1 | 52 | 3,594 | 34,6% | 25,0% | 1,9% | 23,2 | 45,5% |
+| **208 de teste (fora da amostra)** | Círculo do artigo | 208 | 0,000 | 0,0% | 0,0% | 0,0% | 0,0 | 2,8% (0,6%) |
+| | Círculo recalibrado (k = 0,679) | 208 | 0,266 | 3,8% | 2,9% | 0,0% | 14,3 | 29,4% (27,8%) |
+| | Círculo recalibrado, D de produção (k = 0,588) | 208 | 0,714 | 11,1% | 6,7% | 0,0% | 18,4 | 42,1% (42,8%) |
+| | Quadrado recalibrado (k = 0,598) | 208 | 0,304 | 5,3% | 2,4% | 0,0% | 11,5 | 28,7% |
+| | A2 axial | 208 | 0,904 | 15,4% | 8,2% | 0,0% | 17,2 | 50,0% |
+| | Opção 1, eixos 0 e 1 | 208 | 0,124 | 3,4% | 0,5% | 0,0% | 8,0 | 44,2% |
+
+As tabelas completas estão em `zair_article/zair_article_axial.csv`, inclusive o conjunto dos 776 e
+todas as variantes por grupo. As perdas por caso estão em `zair_article_axial_percase.csv`.
+
+![ROI de Zair fiel ao artigo](img/caminho2_zair_artigo_controle.png)
+
+*Figura: ROI de Zair fiel ao artigo, no estilo da Fig. 4a.*
+- **Marcadores:** A (vermelho) = ascendente, B (azul) = descendente, X = centro C.
+- **Círculos:** ciano tracejado = R do artigo; verde = R recalibrado (k = 0,679).
+- **Laranja:** projeção axial do label.
+- **Linha 1 (típicos):** C fica entre as duas aortas, à frente da descendente. O círculo do artigo
+  passa da imagem, e o recalibrado cobre a árvore inteira.
+- **Linha 2 (4 maiores perdas):** são erros de detecção. Em 132, a ascendente está fora da aorta. Em
+  218, a descendente é um vaso pequeno. Em 826 e 966, a ascendente tem D = 12 mm: um círculo interno ao
+  lúmen, que encolhe R e desloca C.
+
+---
+
 ## 5. Interpretação
 
 1. **Extensão: as aortas explicam pouco.**
@@ -345,19 +453,28 @@ As perdas por caso estão em `c2_zair_axial_percase.csv`.
    - A falha herda o rastreamento da ascendente de produção: quando ele para cedo ou deriva, o centro
      da raiz e a distância d ficam errados. A figura de controle mostra isso nos quatro casos de d
      extremo.
-5. **O círculo de Zair não funciona como caixa no ImageCAS.**
-   - O FOV do ImageCAS já é cardíaco (mediana de 179 mm). O quadrado de lado 2R ≈ 238 mm é maior que
-     a imagem em 93% a 99,5% dos casos, então a redução de área mediana é 0%.
-   - Com a mesma perda média da Opção 1 (0,95%), o quadrado de Zair reduz a área em 4% a 12%; A2 axial
-     reduz 50% e a Opção 1, 44%.
-   - A perda do Zair se concentra em poucos casos com detecção errada: 4,7% dos casos acima de 5% de
-     perda, e máximo de até 60%. A2 tem mais casos com perda pequena: 18% acima de 1%, mas só 0,6%
-     acima de 20%.
-   - A perda quase nula nos 208 de teste reflete só o tamanho da caixa (quase a imagem toda). Não é
-     ganho de localização.
-   - A fórmula foi pensada para um FOV torácico, em que o coração ocupa uma fração menor da imagem.
+5. **O círculo de Zair, como o artigo define, quase não recorta no ImageCAS.**
+   - O FOV do ImageCAS já é cardíaco (mediana de 179 mm). O círculo do artigo (R ≈ 129 mm, diâmetro
+     ≈ 259 mm) passa da imagem em 96,9% dos casos. A redução de área mediana é 0,6%, com perda de
+     0,12%.
+   - A fórmula foi pensada para o FOV torácico do OrCaScore, em que o coração ocupa uma fração menor
+     da imagem (Fig. 4 do artigo).
+   - **Recalibrado (k = 0,68)**, com a mesma perda média da Opção 1, o círculo fiel ao artigo reduz a
+     área em 30%. A variante com D de produção (k = 0,59) chega a 43%. A2 axial reduz 50% e a Opção 1,
+     44%.
+   - A variante da Seção 4 (ponto médio e `d` euclidiano) ficava em 4% a 12%. O centro do artigo,
+     ~34 mm mais anterior, é o que permite encolher o raio sem perder a árvore.
+   - **Cauda:** o círculo recalibrado tem menos casos com perda acima de 1% (7% contra 18% de A2 e 14%
+     da Opção 1). Mas tem mais casos acima de 20% (1,2% contra 0,6% e 0,4%) e máximo de 88%. Esses
+     casos são erros de detecção da aorta na fatia (figura da Seção 4b).
+   - **Nos 208 de teste:** o círculo recalibrado perde 0,27% com 29% de redução; a Opção 1 perde
+     0,12% com 44%; A2 perde 0,90% com 50%. A variante com D de produção perde 0,71% com 42%.
 6. **Ressalvas.**
-   - O centro de Zair foi suposto no ponto médio (não confirmei no texto do artigo).
+   - A fatia do artigo (atlas + Dice na bifurcação do tronco pulmonar) foi aproximada pela fatia mais
+     cranial com as duas aortas. Ela fica acima de todo o label em 98,8% dos casos, mas não foi
+     conferido se ela mostra o tronco pulmonar em Y.
+   - O artigo não informa a faixa de raio da Hough nem a regra de escolha entre círculos; as faixas e
+     as regras aqui são minhas.
    - "Raiz" é o menor z rastreado, não o z mínimo da máscara do Level Set.
    - O melhor R² de cada alvo é escolhido entre 14 candidatos, o que dá um viés otimista pequeno.
    - Os 53 casos duvidosos não foram excluídos.
@@ -389,7 +506,8 @@ Melhor R² fora da amostra (4 folds, 776 casos) e a redução de margem correspo
 | `c2_correlations.csv` | Pearson e Spearman, por unidade e grupo |
 | `c2_regressions.csv`, `c2_best_per_target.csv` | R² dentro e fora da amostra, fator sqrt, p95 |
 | `c2_position_anchors.csv` | Passo 3.4 |
-| `c2_zair_axial.csv`, `c2_zair_axial_percase.csv`, `c2_zair_calibration.json` | Passo 4 |
+| `c2_zair_axial.csv`, `c2_zair_axial_percase.csv`, `c2_zair_calibration.json` | Passo 4 (variante) |
+| `zair_article/`: `zair_slice.csv`, `zair_article_cases.csv`, `zair_article_axial*.csv`, `zair_article_slice_diagnostics.csv`, `zair_article_calibration.json` | Passo 4b (fiel ao artigo) |
 
 **Scripts** em `scripts/`, na ordem de execução:
 
@@ -399,6 +517,9 @@ Melhor R² fora da amostra (4 folds, 776 casos) e a redução de margem correspo
 3. `c2_features.py`, que usa a seleção da descendente de `c2_select.py`.
 4. `c2_analyze.py`: Passos 2 a 4.
 5. `c2_control_figure.py`: gera `docs/img/caminho2_controle_deteccao.png`.
+6. `zair_extract.py`: medidas das duas aortas na fatia mais cranial; lê as imagens de novo, ~6 min.
+7. `zair_article.py`: Passo 4b.
+8. `zair_article_figure.py`: gera `docs/img/caminho2_zair_artigo_controle.png`.
 
 **Dependências:**
 - Os caches ficam no scratchpad da sessão (`c2/c2_cache`, `c2/c2_asc_wide`, `p0_cache`), fora do
