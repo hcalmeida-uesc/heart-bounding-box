@@ -1,0 +1,5 @@
+conjunto,n,asc,desc,completos,fatias_desc_mediana,fatias_desc_p5,frac_fatias_desc_mediana
+792 fora do teste,792,791,776,776,100.0,57.5,0.9915610311921379
+C dentro,724,724,724,724,102.0,64.15,0.9923953273189914
+C fora,68,67,52,52,66.0,14.0,0.8013550135501355
+208 teste,208,208,208,208,99.5,66.0,1.0

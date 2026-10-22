@@ -1,0 +1,46 @@
+eixo,ancora,grupo,n,p95_abs_erro_mm,mediana_abs_erro_mm,vies_mediano_mm,r2_oos
+LL (eixo 0),"A1 (centróide da aorta, produção)",todos,776,21.67478115204281,6.632197507618628,25.381779038550306,
+LL (eixo 0),centro da ascendente (raiz),todos,776,23.757405132055283,5.58203125,22.23583984375,
+LL (eixo 0),centro da descendente,todos,776,20.33154296875,6.541015625,2.53125,
+LL (eixo 0),A2 (centro do volume),todos,776,11.635009765625,3.958984375,0.4775390625,
+LL (eixo 0),"(e) combinação linear de A1, ascendente, descendente e A2",todos,776,11.547324577862419,3.7539588613122774,-0.08230662547406098,0.600127336525917
+LL (eixo 0),"A1 (centróide da aorta, produção)",C dentro,724,20.859539043937488,6.424045681066772,25.60851604040708,
+LL (eixo 0),centro da ascendente (raiz),C dentro,724,21.897998046875014,5.4013671875,22.18380345404148,
+LL (eixo 0),centro da descendente,C dentro,724,20.21748046875,6.47119140625,2.0712890625,
+LL (eixo 0),A2 (centro do volume),C dentro,724,11.637939453125,3.97705078125,0.3447265625,
+LL (eixo 0),"(e) combinação linear de A1, ascendente, descendente e A2",C dentro,724,11.533044122759696,3.7632528237697827,-0.16307176887649888,0.6014498105839905
+LL (eixo 0),"A1 (centróide da aorta, produção)",C fora,52,35.52963526529832,9.395603722043177,23.572004633190417,
+LL (eixo 0),centro da ascendente (raiz),C fora,52,54.45732421874996,10.74821062386036,23.84375,
+LL (eixo 0),centro da descendente,C fora,52,26.88637695312496,7.43212890625,4.2978515625,
+LL (eixo 0),A2 (centro do volume),C fora,52,11.177929687499999,3.42919921875,1.50146484375,
+LL (eixo 0),"(e) combinação linear de A1, ascendente, descendente e A2",C fora,52,11.758152263035218,3.4859785977515756,0.6111850239952616,0.5846763176136676
+AP (eixo 1),"A1 (centróide da aorta, produção)",todos,776,18.715507875476717,5.87606331477577,2.7117801896557694,
+AP (eixo 1),centro da ascendente (raiz),todos,776,21.72297127544881,5.038149893283844,2.2638330161571503,
+AP (eixo 1),centro da descendente,todos,776,22.505859375,7.59375,69.7197265625,
+AP (eixo 1),A2 (centro do volume),todos,776,20.778564453125,6.94580078125,10.90380859375,
+AP (eixo 1),"(e) combinação linear de A1, ascendente, descendente e A2",todos,776,14.833718361120408,5.092300673883415,-0.11460227574365689,0.7179956524358706
+AP (eixo 1),"A1 (centróide da aorta, produção)",C dentro,724,18.813051364921893,5.87606331477577,3.2217260175246096,
+AP (eixo 1),centro da ascendente (raiz),C dentro,724,20.19533141255379,4.919501960277557,2.551127940416343,
+AP (eixo 1),centro da descendente,C dentro,724,22.524609375,7.4052734375,69.65087890625,
+AP (eixo 1),A2 (centro do volume),C dentro,724,20.996972656250005,6.94580078125,10.9833984375,
+AP (eixo 1),"(e) combinação linear de A1, ascendente, descendente e A2",C dentro,724,14.818586067769557,5.113707354073021,0.1298186906440577,0.7153784624917039
+AP (eixo 1),"A1 (centróide da aorta, produção)",C fora,52,17.464352587295465,5.974522595181611,-0.2919033085957281,
+AP (eixo 1),centro da ascendente (raiz),C fora,52,27.582685479521754,8.265889391303062,-2.28515625,
+AP (eixo 1),centro da descendente,C fora,52,21.756201171875,9.94287109375,70.634765625,
+AP (eixo 1),A2 (centro do volume),C fora,52,19.313183593749994,6.77734375,10.7646484375,
+AP (eixo 1),"(e) combinação linear de A1, ascendente, descendente e A2",C fora,52,15.132940740387628,4.905307760572093,-1.913715699942955,0.7545069817330478
+CC (eixo 2),"A1 (centróide da aorta, produção)",todos,776,24.212499895932915,6.445219452711129,-33.92923406690471,
+CC (eixo 2),centro da ascendente (raiz),todos,776,29.5,6.25,-20.75,
+CC (eixo 2),centro da descendente,todos,776,15.3125,5.25,-37.75,
+CC (eixo 2),A2 (centro do volume),todos,776,15.0,5.0,-0.375,
+CC (eixo 2),"(e) combinação linear de A1, ascendente, descendente e A2",todos,776,12.282132563891793,3.989596571296808,0.007724054691003346,0.5132116413658356
+CC (eixo 2),"A1 (centróide da aorta, produção)",C dentro,724,18.292818934919435,6.197147078276487,-33.9948564947533,
+CC (eixo 2),centro da ascendente (raiz),C dentro,724,18.462500000000006,6.0,-20.5,
+CC (eixo 2),centro da descendente,C dentro,724,13.5,5.25,-37.75,
+CC (eixo 2),A2 (centro do volume),C dentro,724,15.0,4.875,-0.375,
+CC (eixo 2),"(e) combinação linear de A1, ascendente, descendente e A2",C dentro,724,11.777984119376567,3.9189581158654185,0.052270594796699044,0.5576246397352159
+CC (eixo 2),"A1 (centróide da aorta, produção)",C fora,52,45.5524031952883,21.499499185604385,-31.685447980462435,
+CC (eixo 2),centro da ascendente (raiz),C fora,52,62.87499999999997,31.625,-29.625,
+CC (eixo 2),centro da descendente,C fora,52,31.424999999999994,6.0,-39.125,
+CC (eixo 2),A2 (centro do volume),C fora,52,15.199999999999996,6.5,0.5,
+CC (eixo 2),"(e) combinação linear de A1, ascendente, descendente e A2",C fora,52,18.18168564309758,5.390107402550971,-1.7138618984281315,-0.14837674055004046
