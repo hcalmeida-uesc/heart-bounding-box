@@ -1,0 +1,4 @@
+Método,Casos cobertos,Redução de volume (%),Perda média das coronárias (%),Casos com perda > 1% (%),Casos com perda > 5% (%),Casos com perda > 20% (%),Perda máxima em um caso (%)
+Caixa fixa pela aorta (Opção 1),208,48.98094356432578,0.1548715155233006,3.3653846153846154,0.4807692307692308,0.0,12.001096169279856
+Caixa pelo centro da imagem,208,49.81481578258842,0.5165831765309705,11.057692307692307,2.8846153846153846,0.0,16.13473723662173
+"Caixa pela aorta e centro da imagem, com verificação (proposta)",208,50.15210169335309,0.1072926589758799,3.8461538461538463,0.0,0.0,3.8485450746572947

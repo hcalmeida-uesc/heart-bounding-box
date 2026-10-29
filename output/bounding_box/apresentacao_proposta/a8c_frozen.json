@@ -1,0 +1,159 @@
+{
+  "metodo": "Caixa pela aorta e centro da imagem, com verificação (variante A8c, seção a8_regime_box)",
+  "ajuste": "792 casos fora do teste (split_original.csv); offsets de treino por cross-fit interno nos 4 folds",
+  "p": 97.4172293481388,
+  "p_origem": "a8_highlights.csv: A8c, ponto 'Rv = Opção 1', avaliação oos",
+  "unidades": "voxels de resolução integral, eixos LAS (0 látero-lateral, 1 ântero-posterior, 2 crânio-caudal)",
+  "spacing_mediano_mm_792": {
+    "latero_lateral": 0.349609375,
+    "antero_posterior": 0.349609375,
+    "cranio_caudal": 0.5
+  },
+  "entradas": {
+    "centro_da_imagem": "shape / 2",
+    "aorta_producao": "anchor_(y,x,z) de aorta_anchor/all_cases.csv × (2, 2, 1); ausente se status != ok",
+    "ascendente": "asc_c0..2_vox de caminho2_aorta_geometry (mediana dos centros na janela de 20 mm da raiz)",
+    "descendente": "desc_c0..2_vox de caminho2_aorta_geometry (ausente se desc_found = False)",
+    "d_mm": "distância axial entre os centros da ascendente e da descendente (mm), d_mm de caminho2"
+  },
+  "regras": {
+    "nao_confiavel": "qualquer de: sem aorta de produção; descendente não encontrada; entrada ausente; S1 (|âncora_regressao_sinal − (centro_da_imagem + vies)| > limiar em AP ou CC); S2 (d_mm fora de [d_lo, d_hi]); S3 (alguma das 9 coordenadas fora do intervalo)",
+    "ancora_confiavel": "LL = centro da imagem; AP e CC = intercepto + Σ coef · [aorta_producao, ascendente, descendente, centro_da_imagem] (coeficientes 'regressao_ancora')",
+    "ancora_nao_confiavel": "LL = centro da imagem; AP e CC = centro da imagem + vies",
+    "caixa": "inferior = floor(âncora + offset_inferior), superior = ceil(âncora + offset_superior) (exclusivo), recortados a [0, shape]; offsets do regime do caso"
+  },
+  "vies_vox": {
+    "latero_lateral": 0.0,
+    "antero_posterior": 31.0,
+    "cranio_caudal": -1.0
+  },
+  "regressao_ancora": {
+    "antero_posterior": {
+      "intercepto": 131.74019396958337,
+      "aorta_producao": 0.19886069868376627,
+      "ascendente": 0.2878857165383072,
+      "descendente": 0.2265819433149421,
+      "centro_da_imagem": 0.0
+    },
+    "cranio_caudal": {
+      "intercepto": -2.0404601434696312,
+      "aorta_producao": -0.2846176063075653,
+      "ascendente": 0.3246630954016887,
+      "descendente": 0.47507668074390785,
+      "centro_da_imagem": 0.26622031680891195
+    }
+  },
+  "regressao_sinal_S1": {
+    "antero_posterior": {
+      "intercepto": 149.50186379890667,
+      "aorta_producao": 0.2850703687797561,
+      "ascendente": 0.13910792142605655,
+      "descendente": 0.22215224052348653,
+      "centro_da_imagem": 0.0
+    },
+    "cranio_caudal": {
+      "intercepto": -0.3453735096252515,
+      "aorta_producao": -0.2760631175640225,
+      "ascendente": 0.32478375851344665,
+      "descendente": 0.4590839829125733,
+      "centro_da_imagem": 0.26285826315477323
+    }
+  },
+  "limiares": {
+    "S1_vox": {
+      "antero_posterior": 51.434790558780115,
+      "cranio_caudal": 22.177457314080932
+    },
+    "S2_d_mm": [
+      35.41322485443556,
+      101.8665462589621
+    ],
+    "S3_coordenadas_vox": {
+      "A1_0": [
+        129.5546591531943,
+        267.8691820450118
+      ],
+      "A1_1": [
+        183.74272107996092,
+        362.6970471605476
+      ],
+      "A1_2": [
+        131.5393013136502,
+        236.16910480096033
+      ],
+      "asc_0": [
+        130.13714294433595,
+        334.20000610351565
+      ],
+      "asc_1": [
+        172.8,
+        361.5999938964845
+      ],
+      "asc_2": [
+        107.6,
+        230.4000000000002
+      ],
+      "desc_0": [
+        184.8,
+        334.8000000000002
+      ],
+      "desc_1": [
+        31.6,
+        176.0
+      ],
+      "desc_2": [
+        149.8,
+        247.0000000000001
+      ]
+    },
+    "origem": "percentis nos casos de treino não suspeitos pelos sinais antigos (p99; p0,5 e p99,5)"
+  },
+  "regimes": {
+    "aorta_detectada_e_plausivel": {
+      "casos_treino": 657,
+      "offset_inferior_vox": {
+        "latero_lateral": -191.0,
+        "antero_posterior": -174.62003512626103,
+        "cranio_caudal": -121.21971633787348
+      },
+      "offset_superior_vox": {
+        "latero_lateral": 202.0,
+        "antero_posterior": 186.15815535312308,
+        "cranio_caudal": 111.88396081348593
+      },
+      "tamanho_nominal_vox": {
+        "latero_lateral": 393.0,
+        "antero_posterior": 360.7781904793841,
+        "cranio_caudal": 233.10367715135942
+      },
+      "tamanho_nominal_mm_spacing_mediano": {
+        "latero_lateral": 137.396484375,
+        "antero_posterior": 126.13143768712843,
+        "cranio_caudal": 116.55183857567971
+      }
+    },
+    "aorta_nao_confiavel": {
+      "casos_treino": 135,
+      "offset_inferior_vox": {
+        "latero_lateral": -192.0,
+        "antero_posterior": -219.85178593855397,
+        "cranio_caudal": -131.57817465301198
+      },
+      "offset_superior_vox": {
+        "latero_lateral": 202.69543663253003,
+        "antero_posterior": 203.15634930602403,
+        "cranio_caudal": 128.039087326506
+      },
+      "tamanho_nominal_vox": {
+        "latero_lateral": 394.69543663253,
+        "antero_posterior": 423.008135244578,
+        "cranio_caudal": 259.617261979518
+      },
+      "tamanho_nominal_mm_spacing_mediano": {
+        "latero_lateral": 137.98922491645092,
+        "antero_posterior": 147.8876097827724,
+        "cranio_caudal": 129.808630989759
+      }
+    }
+  }
+}

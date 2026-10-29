@@ -1,0 +1,4 @@
+| Situação | Casos (de 792) | Tamanho da caixa (mm, látero-lateral × ântero-posterior × crânio-caudal) | Redução de volume (%) | Casos com perda > 5% (%) |
+|---|---:|---:|---:|---:|
+| Aorta detectada e plausível | 657 | 137 × 126 × 117 | 51,6 | 1,5 |
+| Aorta não confiável | 135 | 138 × 148 × 130 | 39,3 | 2,2 |
