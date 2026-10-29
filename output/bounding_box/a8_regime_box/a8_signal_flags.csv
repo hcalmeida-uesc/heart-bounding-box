@@ -1,0 +1,1001 @@
+img_id,conjunto,k_fold,antigos,S1,S2,S3,sem_A1,sem_desc,antigos_motivos,novos
+1,208 de teste (ajuste nos 792),0,False,True,False,False,False,False,,True
+4,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+8,208 de teste (ajuste nos 792),0,True,True,False,True,False,False,círculo cruzando a borda do FOV,True
+14,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+24,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+31,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+33,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+36,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+39,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+55,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+57,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+60,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+70,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,descendente em < 50% das fatias; círculo cruzando a borda do FOV,True
+72,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+79,208 de teste (ajuste nos 792),0,False,True,False,False,False,False,,True
+81,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+84,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+85,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+89,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+98,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+100,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+109,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+112,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+117,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+118,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+119,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+123,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+127,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+128,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+133,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+137,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+139,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+143,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+153,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+154,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+157,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+167,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+168,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+173,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+188,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+194,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+197,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+199,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+201,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+203,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+204,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+206,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+213,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+221,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+237,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+248,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+259,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+261,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+262,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+265,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+269,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+270,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+271,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+274,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+279,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+281,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+286,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+295,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+296,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+304,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+307,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+312,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+325,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+326,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+327,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+333,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+334,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+337,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+343,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+348,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+362,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+366,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+372,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+382,208 de teste (ajuste nos 792),0,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+392,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+393,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+404,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+405,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+419,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+425,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+430,208 de teste (ajuste nos 792),0,False,False,False,True,False,False,,True
+444,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+450,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+453,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+454,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+456,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+462,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+466,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+473,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+474,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+475,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+476,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+481,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+494,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+497,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+500,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+524,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+527,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+535,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+543,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+558,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+564,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+569,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+570,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+573,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+579,208 de teste (ajuste nos 792),0,False,False,False,True,False,False,,True
+586,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+603,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+607,208 de teste (ajuste nos 792),0,True,True,False,False,False,False,descendente em < 50% das fatias,True
+613,208 de teste (ajuste nos 792),0,False,True,False,False,False,False,,True
+619,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+620,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+626,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+628,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+630,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+654,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+655,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+658,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+660,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+661,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+666,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+668,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+669,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+675,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+680,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+683,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+684,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+690,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+694,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+701,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+713,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+721,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+722,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+729,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+730,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+737,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+742,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+745,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+747,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+750,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+752,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+766,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+773,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+775,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+776,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+784,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+789,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+791,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+793,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+796,208 de teste (ajuste nos 792),0,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+800,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+803,208 de teste (ajuste nos 792),0,False,True,False,True,False,False,,True
+805,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+810,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+811,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+819,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+831,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+832,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+839,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+842,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+854,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+856,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+857,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+859,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+862,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+871,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+873,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+875,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+878,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+884,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+890,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+896,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+901,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+906,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+910,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+911,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+913,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+917,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+918,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+927,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+930,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+932,208 de teste (ajuste nos 792),0,False,False,False,True,False,False,,True
+936,208 de teste (ajuste nos 792),0,False,False,False,True,False,False,,True
+939,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+944,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+946,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+954,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+955,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+956,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+958,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+961,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+967,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+970,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+971,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+975,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+981,208 de teste (ajuste nos 792),0,False,False,False,True,False,False,,True
+982,208 de teste (ajuste nos 792),0,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+985,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+990,208 de teste (ajuste nos 792),0,False,False,False,True,False,False,,True
+992,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+994,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+999,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+1000,208 de teste (ajuste nos 792),0,False,False,False,False,False,False,,False
+9,792 (oos),1,False,False,False,False,False,False,,False
+12,792 (oos),1,False,False,False,False,False,False,,False
+13,792 (oos),1,False,False,False,False,False,False,,False
+15,792 (oos),1,True,False,False,True,False,False,fora do Critério C; círculo cruzando a borda do FOV,True
+18,792 (oos),1,False,False,False,True,False,False,,True
+21,792 (oos),1,False,False,False,False,False,False,,False
+22,792 (oos),1,False,False,False,False,False,False,,False
+30,792 (oos),1,False,False,False,False,False,False,,False
+37,792 (oos),1,False,False,False,False,False,False,,False
+43,792 (oos),1,False,False,False,False,False,False,,False
+46,792 (oos),1,False,False,False,False,False,False,,False
+49,792 (oos),1,False,False,False,False,False,False,,False
+50,792 (oos),1,False,False,False,False,False,False,,False
+52,792 (oos),1,False,False,False,False,False,False,,False
+73,792 (oos),1,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+80,792 (oos),1,False,False,False,False,False,False,,False
+94,792 (oos),1,False,False,False,False,False,False,,False
+99,792 (oos),1,False,False,False,False,False,False,,False
+106,792 (oos),1,False,False,False,False,False,False,,False
+108,792 (oos),1,False,False,False,True,False,False,,True
+111,792 (oos),1,True,False,False,True,False,False,fora do Critério C,True
+116,792 (oos),1,False,False,False,False,False,False,,False
+131,792 (oos),1,False,False,False,False,False,False,,False
+136,792 (oos),1,False,False,False,False,False,False,,False
+144,792 (oos),1,False,False,False,False,False,False,,False
+149,792 (oos),1,False,False,False,False,False,False,,False
+152,792 (oos),1,False,False,False,False,False,False,,False
+155,792 (oos),1,False,False,False,False,False,False,,False
+161,792 (oos),1,False,False,False,False,False,False,,False
+166,792 (oos),1,False,False,False,False,False,False,,False
+171,792 (oos),1,False,False,False,False,False,False,,False
+177,792 (oos),1,False,False,False,False,False,False,,False
+178,792 (oos),1,False,False,False,False,False,False,,False
+180,792 (oos),1,False,False,False,False,False,False,,False
+189,792 (oos),1,False,False,False,False,False,False,,False
+190,792 (oos),1,False,False,False,False,False,False,,False
+191,792 (oos),1,True,False,False,True,False,False,descendente em < 50% das fatias,True
+193,792 (oos),1,False,False,False,False,False,False,,False
+220,792 (oos),1,False,False,False,True,False,False,,True
+223,792 (oos),1,False,False,False,False,False,False,,False
+224,792 (oos),1,False,False,False,True,False,False,,True
+227,792 (oos),1,False,False,False,False,False,False,,False
+230,792 (oos),1,False,True,False,True,False,False,,True
+234,792 (oos),1,False,False,False,False,False,False,,False
+235,792 (oos),1,False,True,False,True,False,False,,True
+241,792 (oos),1,False,False,False,True,False,False,,True
+242,792 (oos),1,False,False,False,False,False,False,,False
+244,792 (oos),1,False,False,False,False,False,False,,False
+250,792 (oos),1,False,False,False,False,False,False,,False
+252,792 (oos),1,False,False,False,False,False,False,,False
+253,792 (oos),1,False,False,False,False,False,False,,False
+268,792 (oos),1,True,False,False,True,True,True,fora do Critério C; sem aorta de produção (A1); descendente não encontrada,True
+272,792 (oos),1,False,False,False,False,False,False,,False
+283,792 (oos),1,False,False,False,False,False,False,,False
+290,792 (oos),1,False,True,False,True,False,False,,True
+294,792 (oos),1,False,False,False,False,False,False,,False
+297,792 (oos),1,True,True,False,True,False,False,fora do Critério C,True
+302,792 (oos),1,False,False,False,False,False,False,,False
+305,792 (oos),1,False,False,False,False,False,False,,False
+308,792 (oos),1,False,False,False,False,False,False,,False
+315,792 (oos),1,False,False,False,False,False,False,,False
+319,792 (oos),1,False,False,False,False,False,False,,False
+335,792 (oos),1,False,False,False,False,False,False,,False
+336,792 (oos),1,False,False,False,False,False,False,,False
+338,792 (oos),1,False,False,False,False,False,False,,False
+339,792 (oos),1,False,False,False,False,False,False,,False
+342,792 (oos),1,False,False,False,False,False,False,,False
+347,792 (oos),1,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+356,792 (oos),1,False,True,False,True,False,False,,True
+368,792 (oos),1,True,False,False,True,False,False,fora do Critério C,True
+373,792 (oos),1,False,False,False,False,False,False,,False
+374,792 (oos),1,False,False,False,False,False,False,,False
+380,792 (oos),1,True,False,False,False,False,False,D_desc fora de 10–30 mm,False
+381,792 (oos),1,False,False,False,False,False,False,,False
+387,792 (oos),1,False,False,False,False,False,False,,False
+390,792 (oos),1,False,False,False,False,False,False,,False
+391,792 (oos),1,False,False,False,False,False,False,,False
+394,792 (oos),1,False,False,False,False,False,False,,False
+402,792 (oos),1,False,False,False,True,False,False,,True
+411,792 (oos),1,False,False,False,False,False,False,,False
+413,792 (oos),1,False,False,False,False,False,False,,False
+417,792 (oos),1,False,False,False,False,False,False,,False
+420,792 (oos),1,False,False,False,False,False,False,,False
+426,792 (oos),1,False,False,False,False,False,False,,False
+442,792 (oos),1,False,False,False,False,False,False,,False
+447,792 (oos),1,False,False,False,False,False,False,,False
+455,792 (oos),1,False,False,False,False,False,False,,False
+457,792 (oos),1,False,False,False,False,False,False,,False
+461,792 (oos),1,False,False,False,False,False,False,,False
+469,792 (oos),1,False,True,False,False,False,False,,True
+471,792 (oos),1,False,False,False,False,False,False,,False
+472,792 (oos),1,False,False,False,False,False,False,,False
+482,792 (oos),1,False,False,False,False,False,False,,False
+484,792 (oos),1,False,False,False,False,False,False,,False
+485,792 (oos),1,False,False,False,False,False,False,,False
+492,792 (oos),1,False,False,False,False,False,False,,False
+495,792 (oos),1,False,False,False,False,False,False,,False
+499,792 (oos),1,False,False,False,True,False,False,,True
+505,792 (oos),1,False,False,False,False,False,False,,False
+508,792 (oos),1,True,False,True,True,False,False,fora do Critério C,True
+509,792 (oos),1,False,False,False,False,False,False,,False
+516,792 (oos),1,False,False,False,False,False,False,,False
+520,792 (oos),1,False,False,False,False,False,False,,False
+521,792 (oos),1,False,False,False,False,False,False,,False
+523,792 (oos),1,False,False,False,False,False,False,,False
+525,792 (oos),1,False,False,False,False,False,False,,False
+528,792 (oos),1,True,False,False,False,False,False,descendente em < 50% das fatias,False
+531,792 (oos),1,False,False,False,False,False,False,,False
+545,792 (oos),1,False,False,False,False,False,False,,False
+552,792 (oos),1,False,False,False,False,False,False,,False
+556,792 (oos),1,False,False,False,False,False,False,,False
+563,792 (oos),1,True,True,False,False,False,False,fora do Critério C,True
+568,792 (oos),1,False,False,False,True,False,False,,True
+574,792 (oos),1,False,False,False,False,False,False,,False
+578,792 (oos),1,False,False,False,False,False,False,,False
+580,792 (oos),1,False,False,False,False,False,False,,False
+589,792 (oos),1,False,False,False,False,False,False,,False
+593,792 (oos),1,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+595,792 (oos),1,False,False,False,False,False,False,,False
+596,792 (oos),1,False,False,False,False,False,False,,False
+600,792 (oos),1,False,False,False,False,False,False,,False
+601,792 (oos),1,False,False,False,True,False,False,,True
+605,792 (oos),1,False,False,False,False,False,False,,False
+608,792 (oos),1,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+609,792 (oos),1,True,False,False,False,False,False,fora do Critério C,False
+614,792 (oos),1,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+618,792 (oos),1,False,False,False,False,False,False,,False
+622,792 (oos),1,True,False,False,True,False,False,fora do Critério C; descendente em < 50% das fatias,True
+635,792 (oos),1,False,False,False,False,False,False,,False
+636,792 (oos),1,True,True,False,True,False,False,fora do Critério C,True
+637,792 (oos),1,False,False,False,False,False,False,,False
+644,792 (oos),1,False,False,False,False,False,False,,False
+646,792 (oos),1,False,False,False,False,False,False,,False
+648,792 (oos),1,False,False,False,False,False,False,,False
+652,792 (oos),1,False,False,False,False,False,False,,False
+653,792 (oos),1,False,False,False,False,False,False,,False
+656,792 (oos),1,False,False,False,False,False,False,,False
+657,792 (oos),1,True,False,False,False,True,True,fora do Critério C; sem aorta de produção (A1); descendente não encontrada,False
+659,792 (oos),1,False,False,False,False,False,False,,False
+663,792 (oos),1,False,False,False,False,False,False,,False
+681,792 (oos),1,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+686,792 (oos),1,False,False,False,False,False,False,,False
+687,792 (oos),1,False,False,False,False,False,False,,False
+691,792 (oos),1,False,False,False,False,False,False,,False
+705,792 (oos),1,False,False,False,False,False,False,,False
+711,792 (oos),1,False,False,False,False,False,False,,False
+716,792 (oos),1,False,False,False,False,False,False,,False
+720,792 (oos),1,False,False,False,False,False,False,,False
+725,792 (oos),1,False,False,False,False,False,False,,False
+727,792 (oos),1,False,False,False,False,False,False,,False
+728,792 (oos),1,False,False,False,False,False,False,,False
+731,792 (oos),1,False,False,False,False,False,False,,False
+746,792 (oos),1,False,False,False,False,False,False,,False
+754,792 (oos),1,False,False,False,True,False,False,,True
+758,792 (oos),1,False,False,False,False,False,False,,False
+762,792 (oos),1,False,False,False,False,False,False,,False
+768,792 (oos),1,False,False,False,False,False,False,,False
+777,792 (oos),1,True,True,False,True,False,False,fora do Critério C,True
+780,792 (oos),1,False,False,False,False,False,False,,False
+782,792 (oos),1,False,False,False,True,False,False,,True
+783,792 (oos),1,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+788,792 (oos),1,False,False,False,False,False,False,,False
+795,792 (oos),1,True,False,False,False,False,False,IQR do centro > 10 mm,False
+797,792 (oos),1,False,False,False,False,False,False,,False
+802,792 (oos),1,False,False,False,False,False,False,,False
+808,792 (oos),1,False,False,True,False,False,False,,True
+814,792 (oos),1,False,False,False,True,False,False,,True
+817,792 (oos),1,False,False,False,False,False,False,,False
+818,792 (oos),1,False,False,False,False,False,False,,False
+821,792 (oos),1,False,False,False,False,False,False,,False
+822,792 (oos),1,True,False,False,True,True,True,fora do Critério C; sem aorta de produção (A1); descendente não encontrada,True
+829,792 (oos),1,False,False,False,False,False,False,,False
+833,792 (oos),1,False,False,False,False,False,False,,False
+834,792 (oos),1,True,False,False,True,True,True,fora do Critério C; sem aorta de produção (A1); descendente não encontrada,True
+841,792 (oos),1,False,False,False,False,False,False,,False
+844,792 (oos),1,False,False,False,False,False,False,,False
+861,792 (oos),1,False,False,False,False,False,False,,False
+864,792 (oos),1,True,True,False,True,False,False,fora do Critério C; descendente em < 50% das fatias,True
+879,792 (oos),1,False,False,False,False,False,False,,False
+880,792 (oos),1,False,False,False,False,False,False,,False
+888,792 (oos),1,False,False,False,False,False,False,,False
+894,792 (oos),1,False,False,False,False,False,False,,False
+900,792 (oos),1,False,False,False,False,False,False,,False
+903,792 (oos),1,False,False,False,False,False,False,,False
+904,792 (oos),1,True,False,False,True,False,False,fora do Critério C,True
+920,792 (oos),1,False,False,False,False,False,False,,False
+924,792 (oos),1,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+926,792 (oos),1,False,False,False,False,False,False,,False
+934,792 (oos),1,True,False,False,False,False,False,fora do Critério C,False
+937,792 (oos),1,False,False,False,False,False,False,,False
+940,792 (oos),1,False,False,False,False,False,False,,False
+957,792 (oos),1,False,False,False,False,False,False,,False
+959,792 (oos),1,False,False,False,False,False,False,,False
+960,792 (oos),1,False,False,False,False,False,False,,False
+962,792 (oos),1,False,False,False,False,False,False,,False
+974,792 (oos),1,False,False,False,False,False,False,,False
+978,792 (oos),1,False,False,False,False,False,False,,False
+989,792 (oos),1,False,False,False,False,False,False,,False
+3,792 (oos),2,False,False,False,False,False,False,,False
+17,792 (oos),2,True,True,False,True,False,False,descendente em < 50% das fatias; D_desc fora de 10–30 mm,True
+19,792 (oos),2,False,True,False,True,False,False,,True
+23,792 (oos),2,True,True,False,True,False,False,fora do Critério C,True
+28,792 (oos),2,False,False,False,False,False,False,,False
+29,792 (oos),2,False,False,False,False,False,False,,False
+34,792 (oos),2,False,False,False,False,False,False,,False
+48,792 (oos),2,False,False,False,False,False,False,,False
+53,792 (oos),2,False,False,False,False,False,False,,False
+56,792 (oos),2,False,False,False,False,False,False,,False
+59,792 (oos),2,False,False,False,False,False,False,,False
+62,792 (oos),2,False,False,False,False,False,False,,False
+63,792 (oos),2,False,False,False,True,False,False,,True
+65,792 (oos),2,False,False,False,False,False,False,,False
+69,792 (oos),2,False,False,False,False,False,False,,False
+78,792 (oos),2,False,False,False,False,False,False,,False
+83,792 (oos),2,False,False,False,False,False,False,,False
+95,792 (oos),2,False,False,False,False,False,False,,False
+96,792 (oos),2,False,False,False,False,False,False,,False
+104,792 (oos),2,False,False,False,False,False,False,,False
+105,792 (oos),2,False,True,False,True,False,False,,True
+107,792 (oos),2,False,False,False,False,False,False,,False
+114,792 (oos),2,False,False,False,False,False,False,,False
+115,792 (oos),2,False,False,False,False,False,False,,False
+126,792 (oos),2,False,False,False,False,False,False,,False
+132,792 (oos),2,False,True,True,True,False,False,,True
+138,792 (oos),2,False,False,False,False,False,False,,False
+147,792 (oos),2,False,False,False,False,False,False,,False
+150,792 (oos),2,False,False,False,True,False,False,,True
+158,792 (oos),2,False,False,False,False,False,False,,False
+169,792 (oos),2,False,False,False,False,False,False,,False
+174,792 (oos),2,False,False,False,False,False,False,,False
+176,792 (oos),2,True,False,False,True,False,False,fora do Critério C,True
+187,792 (oos),2,False,False,False,False,False,False,,False
+198,792 (oos),2,False,False,False,False,False,False,,False
+202,792 (oos),2,False,False,False,True,False,False,,True
+205,792 (oos),2,False,False,False,False,False,False,,False
+210,792 (oos),2,False,False,False,False,False,False,,False
+212,792 (oos),2,True,False,False,False,False,False,fora do Critério C,False
+222,792 (oos),2,False,False,False,False,False,False,,False
+226,792 (oos),2,False,False,False,False,False,False,,False
+229,792 (oos),2,False,False,False,False,False,False,,False
+231,792 (oos),2,False,False,False,False,False,False,,False
+233,792 (oos),2,False,False,False,False,False,False,,False
+236,792 (oos),2,False,False,False,False,False,False,,False
+239,792 (oos),2,False,False,False,False,False,False,,False
+243,792 (oos),2,False,False,False,False,False,False,,False
+246,792 (oos),2,False,True,False,True,False,False,,True
+249,792 (oos),2,False,False,False,False,False,False,,False
+251,792 (oos),2,False,False,False,False,False,False,,False
+256,792 (oos),2,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+260,792 (oos),2,False,False,False,False,False,False,,False
+263,792 (oos),2,False,False,False,False,False,False,,False
+264,792 (oos),2,True,False,False,False,False,False,IQR do centro > 10 mm,False
+266,792 (oos),2,False,False,False,False,False,False,,False
+267,792 (oos),2,True,False,False,True,False,False,descendente em < 50% das fatias; IQR do centro > 10 mm,True
+275,792 (oos),2,False,False,False,False,False,False,,False
+284,792 (oos),2,False,False,False,False,False,False,,False
+289,792 (oos),2,False,False,False,False,False,False,,False
+292,792 (oos),2,False,False,False,False,False,False,,False
+301,792 (oos),2,True,True,False,True,False,False,fora do Critério C,True
+306,792 (oos),2,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+324,792 (oos),2,False,False,False,True,False,False,,True
+329,792 (oos),2,True,False,False,False,False,False,IQR do centro > 10 mm,False
+332,792 (oos),2,True,False,False,False,False,False,fora do Critério C,False
+340,792 (oos),2,False,False,False,False,False,False,,False
+355,792 (oos),2,True,True,False,True,False,False,círculo cruzando a borda do FOV,True
+358,792 (oos),2,False,False,False,False,False,False,,False
+363,792 (oos),2,False,False,False,False,False,False,,False
+364,792 (oos),2,False,False,False,False,False,False,,False
+371,792 (oos),2,False,False,False,False,False,False,,False
+376,792 (oos),2,False,True,False,True,False,False,,True
+383,792 (oos),2,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+386,792 (oos),2,False,False,False,False,False,False,,False
+388,792 (oos),2,False,False,False,False,False,False,,False
+397,792 (oos),2,False,False,False,False,False,False,,False
+398,792 (oos),2,False,False,False,False,False,False,,False
+403,792 (oos),2,False,False,False,False,False,False,,False
+408,792 (oos),2,False,False,False,False,False,False,,False
+409,792 (oos),2,False,False,False,False,False,False,,False
+410,792 (oos),2,False,False,False,False,False,False,,False
+412,792 (oos),2,False,False,False,False,False,False,,False
+422,792 (oos),2,False,False,False,False,False,False,,False
+436,792 (oos),2,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+437,792 (oos),2,False,False,False,False,False,False,,False
+438,792 (oos),2,False,False,False,False,False,False,,False
+440,792 (oos),2,False,False,False,False,False,False,,False
+441,792 (oos),2,False,False,False,False,False,False,,False
+445,792 (oos),2,True,False,False,False,False,False,fora do Critério C,False
+446,792 (oos),2,False,False,False,False,False,False,,False
+449,792 (oos),2,False,False,False,False,False,False,,False
+460,792 (oos),2,False,False,False,False,False,False,,False
+465,792 (oos),2,False,False,False,False,False,False,,False
+479,792 (oos),2,False,False,False,False,False,False,,False
+490,792 (oos),2,False,False,False,False,False,False,,False
+491,792 (oos),2,False,True,False,True,False,False,,True
+496,792 (oos),2,False,False,False,True,False,False,,True
+498,792 (oos),2,False,False,False,False,False,False,,False
+502,792 (oos),2,True,False,False,False,False,False,fora do Critério C,False
+504,792 (oos),2,False,False,False,False,False,False,,False
+506,792 (oos),2,False,False,False,False,False,False,,False
+511,792 (oos),2,False,False,False,False,False,False,,False
+513,792 (oos),2,False,False,False,False,False,False,,False
+517,792 (oos),2,False,False,False,False,False,False,,False
+519,792 (oos),2,False,False,False,False,False,False,,False
+526,792 (oos),2,False,False,False,False,False,False,,False
+529,792 (oos),2,False,False,False,False,False,False,,False
+530,792 (oos),2,False,False,False,False,False,False,,False
+534,792 (oos),2,False,False,False,False,False,False,,False
+536,792 (oos),2,False,False,False,False,False,False,,False
+539,792 (oos),2,False,False,False,True,False,False,,True
+546,792 (oos),2,False,False,False,False,False,False,,False
+549,792 (oos),2,False,False,False,False,False,False,,False
+550,792 (oos),2,False,False,False,False,False,False,,False
+555,792 (oos),2,False,False,False,False,False,False,,False
+557,792 (oos),2,False,False,False,False,False,False,,False
+559,792 (oos),2,False,False,False,False,False,False,,False
+565,792 (oos),2,False,False,False,False,False,False,,False
+566,792 (oos),2,False,False,False,False,False,False,,False
+571,792 (oos),2,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+577,792 (oos),2,False,False,False,False,False,False,,False
+584,792 (oos),2,False,False,False,False,False,False,,False
+590,792 (oos),2,False,False,False,False,False,False,,False
+598,792 (oos),2,False,False,False,False,False,False,,False
+615,792 (oos),2,False,False,False,False,False,False,,False
+621,792 (oos),2,False,False,False,False,False,False,,False
+624,792 (oos),2,False,False,False,False,False,False,,False
+625,792 (oos),2,False,False,False,False,False,False,,False
+629,792 (oos),2,False,False,False,False,False,False,,False
+631,792 (oos),2,True,False,False,True,False,False,fora do Critério C; descendente em < 50% das fatias; círculo cruzando a borda do FOV,True
+639,792 (oos),2,False,False,False,False,False,False,,False
+641,792 (oos),2,False,False,False,False,False,False,,False
+645,792 (oos),2,False,False,False,False,False,False,,False
+651,792 (oos),2,False,False,False,False,False,False,,False
+662,792 (oos),2,False,False,False,False,False,False,,False
+664,792 (oos),2,False,False,False,False,False,False,,False
+665,792 (oos),2,False,False,False,False,False,False,,False
+673,792 (oos),2,False,False,False,False,False,False,,False
+677,792 (oos),2,False,False,False,False,False,False,,False
+712,792 (oos),2,False,False,False,False,False,False,,False
+714,792 (oos),2,False,False,False,False,False,False,,False
+715,792 (oos),2,False,False,False,False,False,False,,False
+718,792 (oos),2,False,False,False,False,False,False,,False
+719,792 (oos),2,False,False,False,False,False,False,,False
+723,792 (oos),2,False,False,False,False,False,False,,False
+724,792 (oos),2,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+735,792 (oos),2,False,False,False,False,False,False,,False
+738,792 (oos),2,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+741,792 (oos),2,False,False,False,False,False,False,,False
+743,792 (oos),2,False,False,False,False,False,False,,False
+744,792 (oos),2,False,False,False,False,False,False,,False
+753,792 (oos),2,False,False,False,True,False,False,,True
+756,792 (oos),2,False,False,False,True,False,False,,True
+759,792 (oos),2,False,False,False,False,False,False,,False
+761,792 (oos),2,False,False,False,False,False,False,,False
+764,792 (oos),2,False,False,False,False,False,False,,False
+770,792 (oos),2,True,False,True,True,False,False,IQR do centro > 10 mm,True
+772,792 (oos),2,False,False,False,False,False,False,,False
+778,792 (oos),2,False,False,False,False,False,False,,False
+781,792 (oos),2,False,False,False,False,False,False,,False
+792,792 (oos),2,True,True,False,False,False,False,fora do Critério C,True
+794,792 (oos),2,False,False,False,False,False,False,,False
+804,792 (oos),2,False,False,False,False,False,False,,False
+806,792 (oos),2,False,False,False,False,False,False,,False
+807,792 (oos),2,False,False,False,False,False,False,,False
+823,792 (oos),2,True,True,True,True,False,False,fora do Critério C,True
+836,792 (oos),2,False,False,False,False,False,False,,False
+838,792 (oos),2,False,False,False,True,False,False,,True
+840,792 (oos),2,False,False,False,False,False,False,,False
+845,792 (oos),2,False,False,False,False,False,False,,False
+846,792 (oos),2,False,False,False,False,False,False,,False
+847,792 (oos),2,False,False,False,False,False,False,,False
+851,792 (oos),2,False,False,False,False,False,False,,False
+853,792 (oos),2,False,False,False,False,False,False,,False
+860,792 (oos),2,False,False,False,False,False,False,,False
+866,792 (oos),2,False,False,False,False,False,False,,False
+869,792 (oos),2,False,False,False,False,False,False,,False
+874,792 (oos),2,False,False,False,False,False,False,,False
+881,792 (oos),2,False,False,False,False,False,False,,False
+886,792 (oos),2,False,False,False,False,False,False,,False
+887,792 (oos),2,False,False,False,False,False,False,,False
+889,792 (oos),2,False,False,False,False,False,False,,False
+897,792 (oos),2,False,False,False,False,False,False,,False
+898,792 (oos),2,False,False,False,False,False,False,,False
+902,792 (oos),2,False,False,False,False,False,False,,False
+912,792 (oos),2,False,False,False,False,False,False,,False
+921,792 (oos),2,False,False,False,False,False,False,,False
+928,792 (oos),2,False,False,False,False,False,False,,False
+938,792 (oos),2,False,True,False,True,False,False,,True
+948,792 (oos),2,False,False,False,False,False,False,,False
+953,792 (oos),2,False,False,False,False,False,False,,False
+965,792 (oos),2,False,False,False,False,False,False,,False
+966,792 (oos),2,False,False,False,False,False,False,,False
+968,792 (oos),2,False,False,False,False,False,False,,False
+972,792 (oos),2,False,False,False,False,False,False,,False
+979,792 (oos),2,False,False,False,False,False,False,,False
+993,792 (oos),2,False,False,False,True,False,False,,True
+998,792 (oos),2,False,False,False,False,False,False,,False
+5,792 (oos),3,False,False,False,False,False,False,,False
+7,792 (oos),3,False,False,False,False,False,False,,False
+11,792 (oos),3,False,False,False,False,False,False,,False
+20,792 (oos),3,False,False,False,False,False,False,,False
+26,792 (oos),3,False,False,False,False,False,False,,False
+27,792 (oos),3,False,False,False,False,False,False,,False
+38,792 (oos),3,False,False,False,False,False,False,,False
+41,792 (oos),3,False,False,False,False,False,False,,False
+44,792 (oos),3,True,False,False,True,False,False,fora do Critério C; descendente em < 50% das fatias; círculo cruzando a borda do FOV,True
+45,792 (oos),3,False,False,False,False,False,False,,False
+47,792 (oos),3,True,False,False,True,False,False,fora do Critério C,True
+51,792 (oos),3,False,False,False,False,False,False,,False
+64,792 (oos),3,False,False,False,False,False,False,,False
+66,792 (oos),3,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+67,792 (oos),3,False,False,False,False,False,False,,False
+68,792 (oos),3,False,False,False,False,False,False,,False
+75,792 (oos),3,False,False,False,False,False,False,,False
+76,792 (oos),3,False,False,False,False,False,False,,False
+77,792 (oos),3,False,False,False,False,False,False,,False
+87,792 (oos),3,False,False,False,False,False,False,,False
+88,792 (oos),3,False,False,False,False,False,False,,False
+92,792 (oos),3,False,False,False,False,False,False,,False
+97,792 (oos),3,True,True,False,True,False,False,fora do Critério C; descendente em < 50% das fatias; D_desc fora de 10–30 mm,True
+101,792 (oos),3,True,False,True,True,False,False,d < 30 mm,True
+124,792 (oos),3,False,False,False,False,False,False,,False
+125,792 (oos),3,False,False,False,False,False,False,,False
+130,792 (oos),3,False,False,False,False,False,False,,False
+140,792 (oos),3,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+142,792 (oos),3,False,False,False,False,False,False,,False
+145,792 (oos),3,False,False,False,False,False,False,,False
+156,792 (oos),3,True,False,False,False,False,False,D_desc fora de 10–30 mm,False
+159,792 (oos),3,False,False,False,False,False,False,,False
+160,792 (oos),3,False,False,False,False,False,False,,False
+162,792 (oos),3,False,False,False,False,False,False,,False
+163,792 (oos),3,False,False,False,False,False,False,,False
+172,792 (oos),3,False,False,False,False,False,False,,False
+175,792 (oos),3,False,False,False,False,False,False,,False
+179,792 (oos),3,False,False,False,False,False,False,,False
+183,792 (oos),3,True,False,False,False,False,False,descendente em < 50% das fatias,False
+184,792 (oos),3,False,False,False,False,False,False,,False
+185,792 (oos),3,False,False,False,True,False,False,,True
+192,792 (oos),3,False,False,False,False,False,False,,False
+195,792 (oos),3,False,False,False,False,False,False,,False
+196,792 (oos),3,True,False,False,True,False,False,fora do Critério C; descendente em < 50% das fatias,True
+208,792 (oos),3,False,False,False,False,False,False,,False
+217,792 (oos),3,False,False,False,False,False,False,,False
+219,792 (oos),3,False,False,False,False,False,False,,False
+228,792 (oos),3,False,False,False,False,False,False,,False
+238,792 (oos),3,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+240,792 (oos),3,False,False,True,False,False,False,,True
+245,792 (oos),3,False,False,False,False,False,False,,False
+254,792 (oos),3,False,False,False,False,False,False,,False
+257,792 (oos),3,False,False,False,False,False,False,,False
+258,792 (oos),3,False,False,False,False,False,False,,False
+278,792 (oos),3,False,False,False,False,False,False,,False
+280,792 (oos),3,True,True,False,True,False,False,fora do Critério C,True
+293,792 (oos),3,False,False,False,False,False,False,,False
+300,792 (oos),3,False,False,False,False,False,False,,False
+309,792 (oos),3,False,False,False,False,False,False,,False
+310,792 (oos),3,True,False,False,False,False,False,IQR do centro > 10 mm,False
+311,792 (oos),3,False,False,False,False,False,False,,False
+316,792 (oos),3,False,False,False,False,False,False,,False
+317,792 (oos),3,False,False,False,False,False,False,,False
+321,792 (oos),3,True,True,False,True,False,False,círculo cruzando a borda do FOV,True
+322,792 (oos),3,False,False,False,False,False,False,,False
+323,792 (oos),3,False,False,False,False,False,False,,False
+330,792 (oos),3,False,False,False,False,False,False,,False
+331,792 (oos),3,True,False,False,True,False,True,fora do Critério C; descendente não encontrada,True
+341,792 (oos),3,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+351,792 (oos),3,False,False,False,False,False,False,,False
+353,792 (oos),3,False,False,False,False,False,False,,False
+354,792 (oos),3,False,False,False,False,False,False,,False
+359,792 (oos),3,False,False,False,False,False,False,,False
+361,792 (oos),3,False,False,False,False,False,False,,False
+365,792 (oos),3,False,False,False,False,False,False,,False
+367,792 (oos),3,False,False,False,False,False,False,,False
+369,792 (oos),3,False,False,False,False,False,False,,False
+370,792 (oos),3,False,False,False,False,False,False,,False
+377,792 (oos),3,False,False,False,False,False,False,,False
+378,792 (oos),3,False,False,False,False,False,False,,False
+384,792 (oos),3,False,False,False,False,False,False,,False
+389,792 (oos),3,False,False,False,False,False,False,,False
+395,792 (oos),3,False,False,False,False,False,False,,False
+399,792 (oos),3,False,False,False,False,False,False,,False
+400,792 (oos),3,False,False,False,False,False,False,,False
+401,792 (oos),3,False,True,False,True,False,False,,True
+414,792 (oos),3,False,False,False,False,False,False,,False
+418,792 (oos),3,False,False,False,False,False,False,,False
+421,792 (oos),3,True,False,True,True,False,False,fora do Critério C,True
+423,792 (oos),3,False,False,False,False,False,False,,False
+424,792 (oos),3,False,False,False,False,False,False,,False
+427,792 (oos),3,False,False,False,False,False,False,,False
+428,792 (oos),3,False,True,False,False,False,False,,True
+429,792 (oos),3,False,False,False,False,False,False,,False
+432,792 (oos),3,False,False,False,False,False,False,,False
+433,792 (oos),3,False,False,False,False,False,False,,False
+434,792 (oos),3,False,False,False,False,False,False,,False
+443,792 (oos),3,False,False,False,True,False,False,,True
+448,792 (oos),3,False,False,False,False,False,False,,False
+451,792 (oos),3,False,False,False,False,False,False,,False
+458,792 (oos),3,True,True,False,True,False,False,círculo cruzando a borda do FOV,True
+468,792 (oos),3,True,False,False,False,False,False,fora do Critério C,False
+470,792 (oos),3,False,False,False,False,False,False,,False
+478,792 (oos),3,False,False,False,False,False,False,,False
+483,792 (oos),3,False,False,False,False,False,False,,False
+501,792 (oos),3,False,False,False,False,False,False,,False
+503,792 (oos),3,False,False,False,False,False,False,,False
+514,792 (oos),3,False,False,False,False,False,False,,False
+515,792 (oos),3,False,False,False,False,False,False,,False
+518,792 (oos),3,False,False,False,False,False,False,,False
+522,792 (oos),3,True,True,False,True,False,False,fora do Critério C,True
+532,792 (oos),3,False,False,False,False,False,False,,False
+538,792 (oos),3,False,False,False,False,False,False,,False
+540,792 (oos),3,False,False,False,False,False,False,,False
+541,792 (oos),3,False,False,False,False,False,False,,False
+542,792 (oos),3,False,False,False,False,False,False,,False
+547,792 (oos),3,False,False,False,False,False,False,,False
+548,792 (oos),3,False,False,False,True,False,False,,True
+553,792 (oos),3,False,False,False,False,False,False,,False
+554,792 (oos),3,False,False,False,False,False,False,,False
+560,792 (oos),3,False,False,False,False,False,False,,False
+561,792 (oos),3,False,False,False,False,False,False,,False
+562,792 (oos),3,False,False,False,False,False,False,,False
+572,792 (oos),3,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+576,792 (oos),3,False,False,False,False,False,False,,False
+583,792 (oos),3,False,False,False,False,False,False,,False
+587,792 (oos),3,False,False,False,False,False,False,,False
+588,792 (oos),3,False,False,False,False,False,False,,False
+591,792 (oos),3,False,False,False,False,False,False,,False
+594,792 (oos),3,False,False,False,False,False,False,,False
+597,792 (oos),3,False,False,False,True,False,False,,True
+602,792 (oos),3,False,False,False,False,False,False,,False
+604,792 (oos),3,False,False,False,False,False,False,,False
+606,792 (oos),3,True,False,False,True,True,True,fora do Critério C; sem aorta de produção (A1); descendente não encontrada,True
+610,792 (oos),3,False,False,False,False,False,False,,False
+611,792 (oos),3,False,False,False,False,False,False,,False
+617,792 (oos),3,True,True,False,False,False,False,descendente em < 50% das fatias,True
+627,792 (oos),3,False,False,False,False,False,False,,False
+634,792 (oos),3,False,False,False,False,False,False,,False
+643,792 (oos),3,False,False,False,False,False,False,,False
+647,792 (oos),3,False,False,False,False,False,False,,False
+649,792 (oos),3,False,False,False,False,False,False,,False
+650,792 (oos),3,True,True,False,False,False,False,fora do Critério C,True
+671,792 (oos),3,False,False,False,True,False,False,,True
+678,792 (oos),3,False,False,False,False,False,False,,False
+688,792 (oos),3,False,False,False,False,False,False,,False
+689,792 (oos),3,False,False,True,False,False,False,,True
+693,792 (oos),3,False,False,True,True,False,False,,True
+695,792 (oos),3,False,False,False,True,False,False,,True
+696,792 (oos),3,False,False,False,False,False,False,,False
+698,792 (oos),3,False,False,False,False,False,False,,False
+699,792 (oos),3,False,False,False,False,False,False,,False
+703,792 (oos),3,False,False,False,False,False,False,,False
+704,792 (oos),3,False,False,False,False,False,False,,False
+707,792 (oos),3,False,False,False,True,False,False,,True
+708,792 (oos),3,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+709,792 (oos),3,False,False,False,False,False,False,,False
+726,792 (oos),3,True,False,False,True,False,False,fora do Critério C,True
+733,792 (oos),3,False,False,False,False,False,False,,False
+734,792 (oos),3,False,False,True,True,False,False,,True
+736,792 (oos),3,False,False,False,False,False,False,,False
+751,792 (oos),3,False,False,False,False,False,False,,False
+755,792 (oos),3,False,False,False,False,False,False,,False
+767,792 (oos),3,False,False,False,False,False,False,,False
+769,792 (oos),3,False,False,False,False,False,False,,False
+774,792 (oos),3,False,False,False,False,False,False,,False
+786,792 (oos),3,False,False,False,False,False,False,,False
+787,792 (oos),3,False,False,False,False,False,False,,False
+801,792 (oos),3,False,False,False,False,False,False,,False
+813,792 (oos),3,False,False,False,False,False,False,,False
+824,792 (oos),3,False,False,False,False,False,False,,False
+826,792 (oos),3,False,False,False,False,False,False,,False
+828,792 (oos),3,False,False,False,False,False,False,,False
+849,792 (oos),3,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+850,792 (oos),3,True,False,False,True,False,False,fora do Critério C,True
+855,792 (oos),3,False,False,False,False,False,False,,False
+858,792 (oos),3,False,False,False,False,False,False,,False
+867,792 (oos),3,False,False,False,False,False,False,,False
+868,792 (oos),3,False,False,False,False,False,False,,False
+872,792 (oos),3,False,False,False,False,False,False,,False
+876,792 (oos),3,False,False,False,False,False,False,,False
+883,792 (oos),3,False,False,False,False,False,False,,False
+885,792 (oos),3,False,False,False,False,False,False,,False
+893,792 (oos),3,False,False,False,False,False,False,,False
+905,792 (oos),3,False,False,False,False,False,False,,False
+907,792 (oos),3,False,False,False,True,False,False,,True
+908,792 (oos),3,False,False,False,False,False,False,,False
+914,792 (oos),3,False,False,False,False,False,False,,False
+923,792 (oos),3,False,False,False,False,False,False,,False
+925,792 (oos),3,False,False,False,False,False,False,,False
+929,792 (oos),3,False,False,False,False,False,False,,False
+931,792 (oos),3,False,False,False,False,False,False,,False
+935,792 (oos),3,False,False,False,False,False,False,,False
+952,792 (oos),3,False,False,False,False,False,False,,False
+973,792 (oos),3,False,False,False,False,False,False,,False
+983,792 (oos),3,False,False,False,False,False,False,,False
+995,792 (oos),3,False,False,False,False,False,False,,False
+996,792 (oos),3,False,False,False,False,False,False,,False
+2,792 (oos),4,False,False,False,False,False,False,,False
+6,792 (oos),4,False,False,False,False,False,False,,False
+10,792 (oos),4,False,False,False,False,False,False,,False
+16,792 (oos),4,False,False,False,False,False,False,,False
+25,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+32,792 (oos),4,False,False,False,False,False,False,,False
+35,792 (oos),4,False,False,False,False,False,False,,False
+40,792 (oos),4,False,False,False,False,False,False,,False
+42,792 (oos),4,False,False,False,False,False,False,,False
+54,792 (oos),4,False,False,False,False,False,False,,False
+58,792 (oos),4,False,False,False,False,False,False,,False
+61,792 (oos),4,False,False,False,False,False,False,,False
+71,792 (oos),4,False,False,False,False,False,False,,False
+74,792 (oos),4,False,False,False,False,False,False,,False
+82,792 (oos),4,False,False,False,False,False,False,,False
+86,792 (oos),4,True,False,False,False,True,True,fora do Critério C; sem aorta de produção (A1); descendente não encontrada,False
+90,792 (oos),4,False,False,False,False,False,False,,False
+91,792 (oos),4,False,False,False,False,False,False,,False
+93,792 (oos),4,False,False,False,False,False,False,,False
+102,792 (oos),4,False,False,False,False,False,False,,False
+103,792 (oos),4,True,True,False,True,False,False,círculo cruzando a borda do FOV,True
+110,792 (oos),4,False,False,False,False,False,False,,False
+113,792 (oos),4,False,False,False,False,False,False,,False
+120,792 (oos),4,False,False,False,False,False,False,,False
+121,792 (oos),4,False,False,False,False,False,False,,False
+122,792 (oos),4,False,False,False,False,False,False,,False
+129,792 (oos),4,False,False,False,False,False,False,,False
+134,792 (oos),4,False,False,False,False,False,False,,False
+135,792 (oos),4,False,False,False,False,False,False,,False
+141,792 (oos),4,False,False,False,False,False,False,,False
+146,792 (oos),4,False,True,False,True,False,False,,True
+148,792 (oos),4,False,False,False,False,False,False,,False
+151,792 (oos),4,False,False,False,False,False,False,,False
+164,792 (oos),4,False,False,False,False,False,False,,False
+165,792 (oos),4,False,False,False,False,False,False,,False
+170,792 (oos),4,False,False,False,False,False,False,,False
+181,792 (oos),4,False,False,False,False,False,False,,False
+182,792 (oos),4,True,True,False,True,False,False,fora do Critério C,True
+186,792 (oos),4,False,False,False,False,False,False,,False
+200,792 (oos),4,False,False,False,False,False,False,,False
+207,792 (oos),4,False,False,False,False,False,False,,False
+209,792 (oos),4,False,False,False,False,False,False,,False
+211,792 (oos),4,False,False,False,False,False,False,,False
+214,792 (oos),4,False,False,False,False,False,False,,False
+215,792 (oos),4,False,False,False,False,False,False,,False
+216,792 (oos),4,True,False,True,False,False,False,descendente em < 50% das fatias,True
+218,792 (oos),4,True,True,False,True,False,False,fora do Critério C; D_desc fora de 10–30 mm,True
+225,792 (oos),4,True,False,False,True,False,False,fora do Critério C,True
+232,792 (oos),4,False,False,False,False,False,False,,False
+247,792 (oos),4,True,True,True,True,False,False,fora do Critério C,True
+255,792 (oos),4,False,False,False,False,False,False,,False
+273,792 (oos),4,False,False,False,False,False,False,,False
+276,792 (oos),4,False,False,False,False,False,False,,False
+277,792 (oos),4,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+282,792 (oos),4,False,False,False,False,False,False,,False
+285,792 (oos),4,False,False,False,False,False,False,,False
+287,792 (oos),4,False,False,False,False,False,False,,False
+288,792 (oos),4,False,False,False,False,False,False,,False
+291,792 (oos),4,False,False,False,False,False,False,,False
+298,792 (oos),4,False,False,False,False,False,False,,False
+299,792 (oos),4,True,False,False,True,False,False,fora do Critério C,True
+303,792 (oos),4,False,False,False,True,False,False,,True
+313,792 (oos),4,True,False,True,False,False,False,d < 30 mm,True
+314,792 (oos),4,True,True,False,True,False,False,círculo cruzando a borda do FOV,True
+318,792 (oos),4,False,False,False,False,False,False,,False
+320,792 (oos),4,False,False,False,False,False,False,,False
+328,792 (oos),4,False,False,False,False,False,False,,False
+344,792 (oos),4,False,False,False,False,False,False,,False
+345,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+346,792 (oos),4,False,False,False,False,False,False,,False
+349,792 (oos),4,False,False,False,False,False,False,,False
+350,792 (oos),4,False,False,False,False,False,False,,False
+352,792 (oos),4,False,True,False,False,False,False,,True
+357,792 (oos),4,False,False,False,False,False,False,,False
+360,792 (oos),4,False,False,False,False,False,False,,False
+375,792 (oos),4,False,False,False,False,False,False,,False
+379,792 (oos),4,False,False,False,False,False,False,,False
+385,792 (oos),4,False,False,False,False,False,False,,False
+396,792 (oos),4,False,False,False,False,False,False,,False
+406,792 (oos),4,False,False,False,False,False,False,,False
+407,792 (oos),4,False,False,False,False,False,False,,False
+415,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+416,792 (oos),4,False,False,False,False,False,False,,False
+431,792 (oos),4,False,False,False,True,False,False,,True
+435,792 (oos),4,False,False,False,False,False,False,,False
+439,792 (oos),4,False,False,False,False,False,False,,False
+452,792 (oos),4,False,False,True,False,False,False,,True
+459,792 (oos),4,False,False,False,False,False,False,,False
+463,792 (oos),4,False,False,False,False,False,False,,False
+464,792 (oos),4,False,False,False,False,False,False,,False
+467,792 (oos),4,False,False,False,False,False,False,,False
+477,792 (oos),4,False,False,False,False,False,False,,False
+480,792 (oos),4,False,False,False,False,False,False,,False
+486,792 (oos),4,False,False,False,False,False,False,,False
+487,792 (oos),4,False,False,False,False,False,False,,False
+488,792 (oos),4,False,False,False,False,False,False,,False
+489,792 (oos),4,False,False,False,False,False,False,,False
+493,792 (oos),4,False,False,False,False,False,False,,False
+507,792 (oos),4,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+510,792 (oos),4,False,False,False,False,False,False,,False
+512,792 (oos),4,False,False,False,False,False,False,,False
+533,792 (oos),4,False,False,False,False,False,False,,False
+537,792 (oos),4,True,False,True,True,False,False,fora do Critério C; descendente em < 50% das fatias,True
+544,792 (oos),4,False,False,False,False,False,False,,False
+551,792 (oos),4,False,False,False,False,False,False,,False
+567,792 (oos),4,False,False,False,False,False,False,,False
+575,792 (oos),4,False,True,False,False,False,False,,True
+581,792 (oos),4,False,False,False,False,False,False,,False
+582,792 (oos),4,False,False,False,False,False,False,,False
+585,792 (oos),4,False,False,False,False,False,False,,False
+592,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+599,792 (oos),4,False,False,False,False,False,False,,False
+612,792 (oos),4,False,False,False,False,False,False,,False
+616,792 (oos),4,False,False,False,False,False,False,,False
+623,792 (oos),4,True,False,False,True,False,False,descendente em < 50% das fatias,True
+632,792 (oos),4,False,False,False,False,False,False,,False
+633,792 (oos),4,False,False,False,False,False,False,,False
+638,792 (oos),4,True,False,False,True,False,False,círculo cruzando a borda do FOV,True
+640,792 (oos),4,False,False,False,False,False,False,,False
+642,792 (oos),4,False,False,False,False,False,False,,False
+667,792 (oos),4,False,False,False,False,False,False,,False
+670,792 (oos),4,False,False,False,False,False,False,,False
+672,792 (oos),4,False,False,False,False,False,False,,False
+674,792 (oos),4,False,False,False,False,False,False,,False
+676,792 (oos),4,False,False,False,False,False,False,,False
+679,792 (oos),4,False,False,False,False,False,False,,False
+682,792 (oos),4,False,False,False,False,False,False,,False
+685,792 (oos),4,False,False,False,False,False,False,,False
+692,792 (oos),4,False,False,False,False,False,False,,False
+697,792 (oos),4,False,False,False,False,False,False,,False
+700,792 (oos),4,False,False,False,False,False,False,,False
+702,792 (oos),4,True,False,False,False,False,False,IQR do centro > 10 mm,False
+706,792 (oos),4,False,False,False,False,False,False,,False
+710,792 (oos),4,False,False,False,False,False,False,,False
+717,792 (oos),4,False,False,False,False,False,False,,False
+732,792 (oos),4,False,False,False,False,False,False,,False
+739,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+740,792 (oos),4,False,False,False,False,False,False,,False
+748,792 (oos),4,False,False,False,False,False,False,,False
+749,792 (oos),4,False,False,False,False,False,False,,False
+757,792 (oos),4,False,False,False,False,False,False,,False
+760,792 (oos),4,False,False,False,False,False,False,,False
+763,792 (oos),4,False,False,False,False,False,False,,False
+765,792 (oos),4,False,False,False,False,False,False,,False
+771,792 (oos),4,False,False,False,False,False,False,,False
+779,792 (oos),4,False,False,False,False,False,False,,False
+785,792 (oos),4,False,False,False,False,False,False,,False
+790,792 (oos),4,True,False,False,True,False,False,fora do Critério C; descendente em < 50% das fatias,True
+798,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+799,792 (oos),4,False,False,False,False,False,False,,False
+809,792 (oos),4,False,False,False,False,False,False,,False
+812,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+815,792 (oos),4,False,False,False,False,False,False,,False
+816,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+820,792 (oos),4,False,False,False,False,False,False,,False
+825,792 (oos),4,False,False,False,False,False,False,,False
+827,792 (oos),4,False,False,False,False,False,False,,False
+830,792 (oos),4,False,False,False,False,False,False,,False
+835,792 (oos),4,False,False,False,False,False,False,,False
+837,792 (oos),4,False,False,False,False,False,False,,False
+843,792 (oos),4,False,False,False,False,False,False,,False
+848,792 (oos),4,False,False,False,False,False,False,,False
+852,792 (oos),4,False,False,False,True,False,False,,True
+863,792 (oos),4,False,False,False,False,False,False,,False
+865,792 (oos),4,False,False,False,False,False,False,,False
+870,792 (oos),4,False,False,False,False,False,False,,False
+877,792 (oos),4,False,False,False,False,False,False,,False
+882,792 (oos),4,False,False,False,False,False,False,,False
+891,792 (oos),4,False,False,False,False,False,False,,False
+892,792 (oos),4,False,False,False,False,False,False,,False
+895,792 (oos),4,False,False,False,False,False,False,,False
+899,792 (oos),4,False,False,False,False,False,False,,False
+909,792 (oos),4,True,False,False,False,False,False,círculo cruzando a borda do FOV,False
+915,792 (oos),4,False,False,False,False,False,False,,False
+916,792 (oos),4,False,False,False,False,False,False,,False
+919,792 (oos),4,False,False,False,False,False,False,,False
+922,792 (oos),4,False,False,False,False,False,False,,False
+933,792 (oos),4,False,False,False,False,False,False,,False
+941,792 (oos),4,False,False,False,True,False,False,,True
+942,792 (oos),4,False,False,False,False,False,False,,False
+943,792 (oos),4,False,False,False,False,False,False,,False
+945,792 (oos),4,False,False,False,False,False,False,,False
+947,792 (oos),4,True,False,False,False,False,False,IQR do centro > 10 mm,False
+949,792 (oos),4,False,False,False,False,False,False,,False
+950,792 (oos),4,False,False,False,False,False,False,,False
+951,792 (oos),4,True,True,False,True,False,False,fora do Critério C,True
+963,792 (oos),4,True,False,False,False,False,False,IQR do centro > 10 mm,False
+964,792 (oos),4,False,False,False,False,False,False,,False
+969,792 (oos),4,False,False,False,False,False,False,,False
+976,792 (oos),4,True,False,False,True,False,False,descendente em < 50% das fatias,True
+977,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+980,792 (oos),4,False,False,False,False,False,False,,False
+984,792 (oos),4,False,False,False,False,False,False,,False
+986,792 (oos),4,False,False,False,False,False,False,,False
+987,792 (oos),4,False,False,False,False,False,False,,False
+988,792 (oos),4,True,False,False,False,False,False,fora do Critério C,False
+991,792 (oos),4,False,False,False,False,False,False,,False
+997,792 (oos),4,False,False,False,False,False,False,,False

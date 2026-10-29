@@ -1,0 +1,27 @@
+conjunto,sinal,casos
+208 de teste (ajuste nos 792),S1,6
+208 de teste (ajuste nos 792),S2,0
+208 de teste (ajuste nos 792),S3,18
+208 de teste (ajuste nos 792),S1 ∪ S2 ∪ S3,22
+208 de teste (ajuste nos 792),antigos,14
+208 de teste (ajuste nos 792),S1 sem antigos,4
+208 de teste (ajuste nos 792),S2 sem antigos,0
+208 de teste (ajuste nos 792),S3 sem antigos,7
+208 de teste (ajuste nos 792),novos sem antigos,10
+208 de teste (ajuste nos 792),novos e antigos,12
+208 de teste (ajuste nos 792),antigos sem novos,2
+208 de teste (ajuste nos 792),A8b: antigos ∪ novos,24
+208 de teste (ajuste nos 792),A8c: novos ∪ sem A1 ∪ sem desc,22
+792 (oos),S1,41
+792 (oos),S2,16
+792 (oos),S3,119
+792 (oos),S1 ∪ S2 ∪ S3,133
+792 (oos),antigos,111
+792 (oos),S1 sem antigos,17
+792 (oos),S2 sem antigos,7
+792 (oos),S3 sem antigos,49
+792 (oos),novos sem antigos,57
+792 (oos),novos e antigos,76
+792 (oos),antigos sem novos,35
+792 (oos),A8b: antigos ∪ novos,168
+792 (oos),A8c: novos ∪ sem A1 ∪ sem desc,135
