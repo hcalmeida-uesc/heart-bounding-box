@@ -65,6 +65,7 @@ Todos os recortes são slicing puro: spacing e HU preservados, sem reamostragem.
 | **A6** | y e z de A2, x de A1 | Combina o melhor eixo de cada uma: volume em y e z, aorta em x. |
 | **A7** | LL de A2; AP e CC por regressão linear do centro do label sobre A1, ascendente, descendente e A2 | Âncora composta por eixo ([a7_composite_anchor_bbox.md](a7_composite_anchor_bbox.md)). |
 | **A7f** | A7, com A2 corrigida pelo viés em AP e CC nos casos suspeitos (sem rótulo) | A7f-sp: mesma âncora, tamanho por regressão quantílica sobre o spacing. |
+| **A8a/b/c** | A7 no regime confiável e A2 corrigida pelo viés no regime de fallback, com uma caixa por regime; os suspeitos vêm dos sinais antigos (a), dos antigos mais S1–S3 (b) ou só de S1–S3 (c) | [a8_regime_box.md](a8_regime_box.md). S1–S3 são os sinais de plausibilidade geométrica, sem rótulo. |
 
 ## 7. Métodos (Passo 0d)
 
