@@ -1,0 +1,23 @@
+conjunto,motivo,casos
+792 fora do teste,fora do Critério C,68
+792 fora do teste,sem aorta de produção (A1),6
+792 fora do teste,descendente não encontrada,16
+792 fora do teste,descendente em < 50% das fatias,17
+792 fora do teste,IQR do centro > 10 mm,9
+792 fora do teste,círculo cruzando a borda do FOV,25
+792 fora do teste,D_desc fora de 10–30 mm,5
+792 fora do teste,d < 30 mm,2
+792 fora do teste,A7: entradas incompletas (fallback obrigatório),16
+792 fora do teste,A7f: suspeito (qualquer motivo) → A2 nos eixos AP e CC,111
+792 fora do teste,A6: sem A1 → A2 no eixo AP,6
+208 de teste,fora do Critério C,0
+208 de teste,sem aorta de produção (A1),0
+208 de teste,descendente não encontrada,0
+208 de teste,descendente em < 50% das fatias,2
+208 de teste,IQR do centro > 10 mm,0
+208 de teste,círculo cruzando a borda do FOV,13
+208 de teste,D_desc fora de 10–30 mm,0
+208 de teste,d < 30 mm,0
+208 de teste,A7: entradas incompletas (fallback obrigatório),0
+208 de teste,A7f: suspeito (qualquer motivo) → A2 nos eixos AP e CC,14
+208 de teste,A6: sem A1 → A2 no eixo AP,0

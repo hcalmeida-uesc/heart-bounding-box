@@ -1,0 +1,11 @@
+img_id,k_fold,perda_A7f,perda_A2_mesmo_Rv,fallback,eixos_fallback,motivos
+132,2,46.100205876493085,0.0,False,nenhum,—
+355,2,24.096782511531956,24.48070366444145,True,AP e CC,círculo cruzando a borda do FOV
+608,1,20.706657552360564,19.774308862915603,True,AP e CC,círculo cruzando a borda do FOV
+380,1,17.859768778841378,15.831856981800607,True,AP e CC,D_desc fora de 10–30 mm
+44,3,13.955421359750309,13.430700683041575,True,AP e CC,fora do Critério C; descendente em < 50% das fatias; círculo cruzando a borda do FOV
+297,1,13.319234169212347,9.680307048463078,True,AP e CC,fora do Critério C
+310,3,9.170626313435227,8.524985863428059,True,AP e CC,IQR do centro > 10 mm
+770,2,7.847793098177924,6.863066190678935,True,AP e CC,IQR do centro > 10 mm
+191,1,7.761463005058267,6.604411132272537,True,AP e CC,descendente em < 50% das fatias
+601,1,6.763829352929173,2.3302714839763206,False,nenhum,—
