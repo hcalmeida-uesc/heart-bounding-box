@@ -63,6 +63,8 @@ Todos os recortes são slicing puro: spacing e HU preservados, sem reamostragem.
 | **A4** | y e x de A1, z de A3 | Mistura pouco útil: pega o eixo y, em que a aorta é pior. |
 | **A5** | y e x de A1, z = ponto mais baixo da máscara da aorta (aproxima a raiz aórtica) | Só avaliada em 30 casos. |
 | **A6** | y e z de A2, x de A1 | Combina o melhor eixo de cada uma: volume em y e z, aorta em x. |
+| **A7** | LL de A2; AP e CC por regressão linear do centro do label sobre A1, ascendente, descendente e A2 | Âncora composta por eixo ([a7_composite_anchor_bbox.md](a7_composite_anchor_bbox.md)). |
+| **A7f** | A7, com A2 corrigida pelo viés em AP e CC nos casos suspeitos (sem rótulo) | A7f-sp: mesma âncora, tamanho por regressão quantílica sobre o spacing. |
 
 ## 7. Métodos (Passo 0d)
 
