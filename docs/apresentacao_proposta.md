@@ -1,7 +1,7 @@
-# Apresentação da proposta de recorte
+# Nova proposta de recorte do ROI
 
 **Método.** A caixa de tamanho fixo é posicionada pela aorta (ascendente e descendente) e pelo centro da
-imagem. Quando a aorta não é detectada ou está em posição implausível, a caixa é posicionada só pelo
+imagem. Quando a aorta não é detectada ou está em posição improvável, a caixa é posicionada só pelo
 centro da imagem e fica um pouco maior.
 
 Os resultados abaixo vêm de validação cruzada em 4 partes nos 792 casos fora do teste: cada caso é
@@ -89,7 +89,7 @@ empate, o de menor número. Nas quatro situações, a mediana é 0%.
 
 ![Aorta detectada e plausível](img/apresentacao_proposta/cortes_tipo1.png)
 
-![Aorta detectada, mas em posição implausível](img/apresentacao_proposta/cortes_tipo2.png)
+![Aorta detectada, mas em posição improvável](img/apresentacao_proposta/cortes_tipo2.png)
 
 ![Aorta descendente não encontrada](img/apresentacao_proposta/cortes_tipo3.png)
 
