@@ -155,5 +155,82 @@
         "cranio_caudal": 129.808630989759
       }
     }
-  }
+  },
+  "data_congelamento": "2026-10-29",
+  "data_metadados": "2026-10-30",
+  "deteccao": {
+    "ascendente_hough": {
+      "origem": "config/pipeline_config.json CIRCLE_DETECTION (produção)",
+      "raios_px_resolucao_reduzida": [
+        18,
+        31,
+        1
+      ],
+      "raios_nota": "np.arange(início, fim, passo): 18 a 30 px na resolução reduzida (×2)",
+      "radius_step_px": 1,
+      "tol_radius_mm": 9.0,
+      "tol_distance_mm": 20.0,
+      "quadrant_offset": [
+        30,
+        30
+      ],
+      "max_slice_miss_threshold": 5,
+      "neighbor_distance_threshold": 5,
+      "total_num_peaks_initial": 15,
+      "total_num_peaks": 15,
+      "canny_sigma": 3,
+      "use_local_roi": true,
+      "local_roi_padding": 30,
+      "out_of_tolerance_as_miss": false,
+      "interpolate_missed_circles": true,
+      "candidate_selection_strategy": "closest",
+      "candidate_score_accum_weight": 1.0,
+      "candidate_score_distance_weight": 1.0,
+      "candidate_score_radius_weight": 1.0
+    },
+    "ascendente_centro": "mediana dos círculos reais na janela de 20 mm a partir da raiz (menor z rastreado)",
+    "descendente_hough": {
+      "raio_mm": [
+        5.0,
+        14.0
+      ],
+      "picos_por_fatia": 25,
+      "distancia_minima_picos_px": 4,
+      "canny_sigma": 3,
+      "regiao": "colunas posteriores ao centro da ascendente (eixo 1 menor), só fatias com ascendente não interpolada"
+    },
+    "descendente_selecao": {
+      "max_dif_media_HU": 120.0,
+      "max_desvio_HU": 80.0,
+      "max_fracao_buraco": 0.5,
+      "gap_minimo_px": 2.0,
+      "a_esquerda_da_ascendente_mm": 0.0,
+      "raio_suporte_mm": 6.0,
+      "fracao_suporte": 0.5,
+      "tolerancia_rastreio_mm": 12.0,
+      "fatias_minimas": 10
+    },
+    "aorta_producao": "centróide da máscara Hough + Level Set (config LEVEL_SET de produção) × (2, 2, 1)",
+    "preprocessamento": {
+      "DOWNSCALE_METHOD": "opencv",
+      "OPENCV_INTERPOLATION": "linear",
+      "LCC_PER_SLICE": true,
+      "DOWNSCALE_FACTORS": [
+        2,
+        2,
+        1
+      ],
+      "MIN_THRESHOLD": -300,
+      "MAX_THRESHOLD_PERCENTILE": 99.7,
+      "LOWER_THRESHOLD": {
+        "method": "fixed",
+        "fixed_hu": -300,
+        "percentile": 5.0,
+        "clip_min_hu": -700.0,
+        "clip_max_hu": 500.0,
+        "object_percentile": 99.5
+      }
+    }
+  },
+  "nenhum_parametro_do_teste": "todos os parâmetros vêm dos 792 casos split=trainval de split_original.csv"
 }

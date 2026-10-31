@@ -21,3 +21,7 @@ wheels/
 
 # Dataset symlink/junction
 /dataset
+# caches regeneráveis (círculos do Caminho 2, coordenadas do label em resolução integral)
+/output/bounding_box/caminho2_aorta_geometry/scripts/c2_cache/
+/output/bounding_box/caminho2_aorta_geometry/scripts/c2_extract_meta.csv
+/output/bounding_box/p0_cache/
