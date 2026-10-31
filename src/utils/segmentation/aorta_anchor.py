@@ -55,24 +55,14 @@ AORTA_ANCHOR_RECORD_COLUMNS = [
 ]
 
 
-def segment_aorta(
+def detect_ascending_aorta_circles(
     lcc_image: NDArray[Any],
     scaled_spacing: tuple[float, float, float],
     config: dict[str, Any],
-) -> tuple[NDArray[np.uint8], int]:
-    """Localiza e segmenta a aorta ascendente (Hough + Level Set) num volume já pré-processado.
-
-    Reaproveita ``detect_aorta_circles``/``level_set_segmentation`` como estão (código herdado do
-    pipeline de segmentação arterial); não usa vesselness nem detecção de óstios — não são
-    necessários para uma âncora posicional. Retorna máscara vazia (todos zeros) se nenhuma aorta
-    for detectada; cabe ao chamador tratar isso como falha (``compute_geometric_centroid`` levanta
-    ``ValueError`` para máscara vazia, que é o sinal de falha usado no processamento em lote).
-
-    Returns:
-        Tupla ``(mask, num_circles_detected)``.
-    """
+) -> list:
+    """Rastreamento da aorta ascendente por Hough fatia a fatia, com a configuração de produção
+    (``CIRCLE_DETECTION``). Mesma chamada usada por :func:`segment_aorta`."""
     circle_config = config["CIRCLE_DETECTION"]
-    level_set_config = config["LEVEL_SET"]
     use_gpu = bool(config.get("USE_GPU", False))
 
     hough_radii = np.arange(
@@ -108,6 +98,32 @@ def segment_aorta(
         use_gpu=use_gpu,
         verbose=False,
     )
+    return detected_circles
+
+
+def segment_aorta(
+    lcc_image: NDArray[Any],
+    scaled_spacing: tuple[float, float, float],
+    config: dict[str, Any],
+    detected_circles: list | None = None,
+) -> tuple[NDArray[np.uint8], int]:
+    """Localiza e segmenta a aorta ascendente (Hough + Level Set) num volume já pré-processado.
+
+    Reaproveita ``detect_aorta_circles``/``level_set_segmentation`` como estão (código herdado do
+    pipeline de segmentação arterial); não usa vesselness nem detecção de óstios — não são
+    necessários para uma âncora posicional. Retorna máscara vazia (todos zeros) se nenhuma aorta
+    for detectada; cabe ao chamador tratar isso como falha (``compute_geometric_centroid`` levanta
+    ``ValueError`` para máscara vazia, que é o sinal de falha usado no processamento em lote).
+    ``detected_circles`` permite reaproveitar uma detecção já feita por
+    :func:`detect_ascending_aorta_circles` (mesmo resultado, sem repetir o Hough).
+
+    Returns:
+        Tupla ``(mask, num_circles_detected)``.
+    """
+    level_set_config = config["LEVEL_SET"]
+    use_gpu = bool(config.get("USE_GPU", False))
+    if detected_circles is None:
+        detected_circles = detect_ascending_aorta_circles(lcc_image, scaled_spacing, config)
 
     if not detected_circles:
         return np.zeros_like(lcc_image, dtype=np.uint8), 0

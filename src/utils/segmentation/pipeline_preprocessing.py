@@ -20,17 +20,13 @@ from .lower_threshold import resolve_lower_threshold
 from ..utils.nifti_io import load_raw_img_and_label
 
 
-def load_and_preprocess_image(
-    img_id: str, base_path: str, config: Dict[str, Any]
-) -> Dict[str, Any]:
-    """Carrega imagem/label, reduz resolução e monta a maior componente conectada."""
-    # Carrega o volume CCTA e a máscara de referência do ImageCAS.
-    nii_img, nii_label = load_raw_img_and_label(
-        f"{base_path}/{img_id}.img.nii.gz", f"{base_path}/{img_id}.label.nii.gz"
-    )
+def preprocess_ccta_image(nii_img: Any, config: Dict[str, Any]) -> Dict[str, Any]:
+    """Reduz resolução, aplica o limiar de HU e monta a maior componente conectada por fatia.
+
+    Só a imagem: não lê nem recebe rótulo (uso em produção, numa imagem sem anotação).
+    """
     spacing = nii_img.header.get_zooms()
     img = np.array(nii_img.get_fdata(), dtype=np.float32)
-    label = np.array(nii_label.get_fdata()).astype(np.uint8)
 
     # Define o método de downsampling usado para imagem e label.
     downscale_factors = config["DOWNSCALE_FACTORS"]
@@ -90,9 +86,6 @@ def load_and_preprocess_image(
         "lcc_voxels": int(np.sum(lcc_mask)),
     }
 
-    # O label usa interpolação de vizinho mais próximo para preservar classes.
-    label = downscale_image_ndi(label, downscale_factors, order=0)
-
     dx, dy, dz = (
         spacing[0] * downscale_factors[0],
         spacing[1] * downscale_factors[1],
@@ -102,7 +95,6 @@ def load_and_preprocess_image(
     return {
         "lcc_image": lcc_image,
         "lcc_mask": lcc_mask,
-        "label": label,
         "preprocessing_details": preprocessing_details,
         "spacing": spacing,
         "scaled_spacing": (dx, dy, dz),
@@ -110,4 +102,19 @@ def load_and_preprocess_image(
     }
 
 
-__all__ = ["load_and_preprocess_image"]
+def load_and_preprocess_image(
+    img_id: str, base_path: str, config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Carrega imagem/label, reduz resolução e monta a maior componente conectada."""
+    # Carrega o volume CCTA e a máscara de referência do ImageCAS.
+    nii_img, nii_label = load_raw_img_and_label(
+        f"{base_path}/{img_id}.img.nii.gz", f"{base_path}/{img_id}.label.nii.gz"
+    )
+    result = preprocess_ccta_image(nii_img, config)
+    label = np.array(nii_label.get_fdata()).astype(np.uint8)
+    # O label usa interpolação de vizinho mais próximo para preservar classes.
+    result["label"] = downscale_image_ndi(label, result["downscale_factors"], order=0)
+    return result
+
+
+__all__ = ["load_and_preprocess_image", "preprocess_ccta_image"]
