@@ -1,0 +1,31 @@
+{
+ "1_pares": 1000,
+ "1_erros_manifesto": 0,
+ "1_linhas_manifesto": 1000,
+ "2_shape_igual_manifesto": 1000,
+ "2_max_dif_perda": 8.881784197001252e-16,
+ "2_max_dif_rv": 7.105427357601002e-15,
+ "2_voxels_antes_iguais": 1000,
+ "2_voxels_depois_iguais": 1000,
+ "3_max_dif_metricas": 4.440892098500626e-16,
+ "4_ok": 10,
+ "5_max_dif_mm": 0.0,
+ "5_label_no_ponto": [
+  1,
+  1,
+  1,
+  1,
+  1
+ ],
+ "origem_opcoes_1_2_max_dif": 0.0,
+ "6_casos_figura": [
+  90,
+  450,
+  662,
+  779,
+  86,
+  202,
+  469,
+  636
+ ]
+}

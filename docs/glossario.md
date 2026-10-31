@@ -41,6 +41,7 @@
 | **original** | Imagens completas do ImageCAS | 1000 | — | 0 |
 | **Opção 1** (`cropped_option1`) | Âncora da aorta (A1) + Critério C calibrado no split provisório de 88 casos + caixa fixa com p = 95 | 932 | 408,5 × 357,2 × 243,1 | Tolerada (maioria 0; alguns casos perdem) |
 | **Opção 2** (`cropped_option2`) | A1 + Critério C calibrado na população toda + caixa com p = 98 + exclusão dos casos cujo label não coube inteiro (checagem que **usa o label**) | 846 | 436,2 × 379,0 × 257,4 | Zero por construção |
+| **Opção 3** (`cropped_option3`) | Âncora composta A8c (centro da imagem em LL; regressão sobre A1, ascendente, descendente e centro em AP/CC) + caixa por regime (plausível / fallback), p = 97,42, ajuste nos 792 fora do teste, sem Critério C. Ver `docs/cropped_option3_geracao.md` | 1000 | plausível 393,0 × 360,8 × 233,1; fallback 394,7 × 423,0 × 259,6 | Tolerada (792: média 0,23%, máx. 14,1%) |
 
 Todos os recortes são slicing puro: spacing e HU preservados, sem reamostragem.
 

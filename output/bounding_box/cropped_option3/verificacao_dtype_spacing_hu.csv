@@ -1,0 +1,11 @@
+img_id,regime,spacing_igual,dtype_orig,dtype_recorte,valores_identicos,hu_min_orig_caixa,hu_max_orig_caixa,hu_min_recorte,hu_max_recorte,hu_min_volume,hu_max_volume
+90,aorta_plausivel,True,int16,int16,True,-1024,2691,-1024,2691,-1024,2691
+445,aorta_plausivel,True,int16,int16,True,-1024,1695,-1024,1695,-1024,2705
+450,aorta_plausivel,True,int16,int16,True,-1024,1263,-1024,1263,-1024,3071
+661,aorta_plausivel,True,int16,int16,True,-1024,1380,-1024,1380,-1024,3071
+778,aorta_plausivel,True,int16,int16,True,-1024,2154,-1024,2154,-1024,2526
+86,aorta_nao_confiavel,True,int16,int16,True,-1024,3069,-1024,3069,-1024,3069
+452,aorta_nao_confiavel,True,int16,int16,True,-1024,1731,-1024,1731,-1024,1731
+693,aorta_nao_confiavel,True,int16,int16,True,-1024,1731,-1024,1731,-1024,1731
+726,aorta_nao_confiavel,True,int16,int16,True,-1024,1533,-1024,1533,-1024,1533
+951,aorta_nao_confiavel,True,int16,int16,True,-1024,3071,-1024,3071,-1024,3071

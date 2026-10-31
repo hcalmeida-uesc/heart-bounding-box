@@ -1,0 +1,15 @@
+{
+ "split_option3_linhas": 1000,
+ "split_option3_igual_original": true,
+ "teste_n": {
+  "original": 208,
+  "option1": 208,
+  "option2": 208,
+  "option3": 208
+ },
+ "teste_identico_nos_quatro": true,
+ "split_fold_option1_igual_original_nos_casos_dele": false,
+ "split_fold_option2_igual_original_nos_casos_dele": false,
+ "arquivos_com_checksum": 2000,
+ "tamanho_total_GB": 45.6
+}
